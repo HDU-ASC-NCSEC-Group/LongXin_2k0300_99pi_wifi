@@ -12,18 +12,18 @@
 所以此处的各个时间阈值最好都设置为10ms的倍数
 所以即使设定时间为55ms，但实际却会是60ms
 */
-#define KEY_Time_DOUBLE 		200
-#define KEY_Time_LONG			2000
+#define KEY_Time_DOUBLE 		20
+#define KEY_Time_LONG			200
 #define KEY_Time_REPEAT			100
 
 //宏定义调换按键数量
 #define KEY_COUNT				4
 
 //用宏定义替换按键索引号
-#define KEY_UP					0	
-#define KEY_DOWN				1	
-#define KEY_CONFIRM				2	
-#define KEY_BACK				3	
+#define KEY_NAME_UP				0	
+#define KEY_NAME_DOWN			1	
+#define KEY_NAME_CONFIRM		2	
+#define KEY_NAME_BACK			3	
 
 //用宏定义替换按键标志位的位掩码，使程序的意义更清晰
 #define KEY_HOLD				0x01

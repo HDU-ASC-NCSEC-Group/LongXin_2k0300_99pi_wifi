@@ -8,7 +8,7 @@ uint8_t Key_Flag[KEY_COUNT];//不同的位表示不同的事件标志位
 
 //-------------------------------------------------------------------------------------------------------------------
 // 函数简介     获取按键状态
-// 使用示例     Key_GetState(KEY_UP);
+// 使用示例     Key_GetState(KEY_DEFINE_UP);
 // 参数说明     n：指定按键
 // 返回参数     KEY_PRESSED：按键按下
 // 返回参数     KEY_UNPRESSED：按键未按下    
@@ -17,30 +17,30 @@ uint8_t Key_Flag[KEY_COUNT];//不同的位表示不同的事件标志位
 
 int8_t Key_GetState(uint8_t n)
 {
-	if (n == KEY_UP)
+	if (n == KEY_NAME_UP)
 	{
-		if (gpio_get_level(KEY_NAME_UP) == 0)//按下
+		if (gpio_get_level(KEY_DEFINE_UP) == 0)//按下
 		{
 		    return KEY_PRESSED;//返回按下
 		}
 	}
-	else if (n == KEY_DOWN)
+	else if (n == KEY_NAME_DOWN)
 	{
-		if (gpio_get_level(KEY_NAME_DOWN) == 0)//按下
+		if (gpio_get_level(KEY_DEFINE_DOWN) == 0)//按下
 		{
 		    return KEY_PRESSED;
 		}
 	}
-	else if (n == KEY_CONFIRM)  
+	else if (n == KEY_NAME_CONFIRM)  
 	{
-		if (gpio_get_level(KEY_NAME_CONFIRM) == 0)//按下
+		if (gpio_get_level(KEY_DEFINE_CONFIRM) == 0)//按下
 		{
 		    return KEY_PRESSED;
 		}
 	}
-	else if (n == KEY_BACK)
+	else if (n == KEY_NAME_BACK)
 	{
-		if (gpio_get_level(KEY_NAME_BACK) == 0)//按下
+		if (gpio_get_level(KEY_DEFINE_BACK) == 0)//按下
 		{
 		    return KEY_PRESSED;
 		}
@@ -49,8 +49,8 @@ int8_t Key_GetState(uint8_t n)
 }
 //-------------------------------------------------------------------------------------------------------------------
 // 函数简介     检查按键标志位是否为1
-// 使用示例     Key_Check(KEY_UP, KEY_SINGLE);
-// 参数说明     n：指定按键（KEY_UP/KEY_DOWN/KEY_CONFIRM/KEY_BACK）
+// 使用示例     Key_Check(KEY_NAME_UP, KEY_SINGLE);
+// 参数说明     n：指定按键（KEY_NAME_UP/KEY_NAME_DOWN/KEY_NAME_CONFIRM/KEY_NAME_BACK）
 // 参数说明     Flag：指定按键标志位位
 // 返回参数     1：为指定标志位
 // 返回参数     0：不是
@@ -98,7 +98,7 @@ void Key_Tick(void)//利用定时中断调用，获取通用的时间基准
 		}
 	}
 	Count++;//计数分频
-	if (Count >= 20)//可过滤按键抖动，按需调整
+	if (Count >= 2)//可过滤按键抖动，按需调整
 	{
 		Count = 0 ;
 		

@@ -15,7 +15,7 @@ void Debug_Page_Menu_UI(uint8_t Page)
 	{
 		// 第一页
 		case 1:
-			ips200_show_string(8  , 0  , "Debug");
+			ips200_show_string(8  , 0  , "[Debug]");
 			ips200_show_string(0  , 16 , "==============================");
 			ips200_show_string(10 , 32 , "BUZ");
 		
@@ -51,23 +51,23 @@ int Debug_Page_Menu(void)
 		uint8_t key_pressed = 0;
 
         /* 按键处理*/
-        if (Key_Check(KEY_UP,KEY_SINGLE))
+        if (Key_Check(KEY_NAME_UP,KEY_SINGLE))
         {
             key_pressed = 1;
             Debug_Page_flag --;
             if (Debug_Page_flag < 1)Debug_Page_flag = 1;
         }
-        else if (Key_Check(KEY_DOWN,KEY_SINGLE))
+        else if (Key_Check(KEY_NAME_DOWN,KEY_SINGLE))
         {
             key_pressed = 1;
             Debug_Page_flag ++;
             if (Debug_Page_flag > 1)Debug_Page_flag = 1;
         }
-        else if (Key_Check(KEY_CONFIRM,KEY_SINGLE))
+        else if (Key_Check(KEY_NAME_CONFIRM,KEY_SINGLE))
         {
             Debug_Page_flag_temp = Debug_Page_flag;
         }
-        else if (Key_Check(KEY_BACK,KEY_SINGLE))    
+        else if (Key_Check(KEY_NAME_BACK,KEY_SINGLE))    
         {
             // 返回上一级界面
             return 0;   
@@ -110,9 +110,9 @@ int Debug_Page_Menu(void)
 // [三级界面]蜂鸣器调试
 int Debug_BUZ(void)
 {
-    ips200_show_string(8  , 0  , "BUZ");
+    ips200_show_string(8  , 0  , "[DEBUG]-BUZ");
     ips200_show_string(0  , 16 , "==============================");
-    ips200_show_string(10 , 32 , "ON ");
+    ips200_show_string(10 , 32 , "OFF");
 
     uint8_t BUZ_flag = 0;
 
@@ -120,23 +120,23 @@ int Debug_BUZ(void)
     {
 
         // 按键处理
-        if (Key_Check(KEY_CONFIRM,KEY_SINGLE))
+        if (Key_Check(KEY_NAME_CONFIRM,KEY_SINGLE)) 
         {
             BUZ_flag = 1 - BUZ_flag;
             if (BUZ_flag)
             {
                 // 开启蜂鸣器
-                gpio_set_level(BEEP_NAME, 0x0);
+                gpio_set_level(BEEP_DEFINE, 0x1);
                 ips200_show_string(10 , 32 , "ON ");
             }
             else
             {
                 // 关闭蜂鸣器
-                gpio_set_level(BEEP_NAME, 0x1);
+                gpio_set_level(BEEP_DEFINE, 0x0);
                 ips200_show_string(10 , 32 , "OFF");
             }
         }
-        else if (Key_Check(KEY_BACK,KEY_SINGLE))
+        else if (Key_Check(KEY_NAME_BACK,KEY_SINGLE))
         {
             // 返回上一级界面
             return 0;   

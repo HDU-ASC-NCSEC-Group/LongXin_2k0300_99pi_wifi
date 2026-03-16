@@ -31,7 +31,7 @@ void Menu_UI(uint8_t Page)
 		// 第一页
 		case 1:
 		{
-            ips200_show_string(8  ,0  , "Menu");
+            ips200_show_string(8  ,0  , "[Menu]");
             ips200_show_string(0  ,16 , "==============================");
             ips200_show_string(10 ,32 , "Debug");
 
@@ -64,23 +64,23 @@ void Menu_Show(void)
 		uint8_t key_pressed = 0;
 
         /* 按键处理*/
-        if (Key_Check(KEY_UP,KEY_SINGLE))
+        if (Key_Check(KEY_NAME_UP,KEY_SINGLE))
         {
             key_pressed = 1;
             menu_flag --;
             if (menu_flag < 1)menu_flag = 1;
         }
-        else if (Key_Check(KEY_DOWN,KEY_SINGLE))
+        else if (Key_Check(KEY_NAME_DOWN,KEY_SINGLE))
         {
             key_pressed = 1;
             menu_flag ++;
             if (menu_flag > 1)menu_flag = 1;
         }
-        else if (Key_Check(KEY_CONFIRM,KEY_SINGLE))
+        else if (Key_Check(KEY_NAME_CONFIRM,KEY_SINGLE))
         {
             menu_flag_temp = menu_flag;
         }
-//        else if (Key_Check(KEY_BACK,KEY_SINGLE))
+//        else if (Key_Check(KEY_NAME_BACK,KEY_SINGLE))
 //        {
 //            // 返回上一级界面
 //            return 0;   
