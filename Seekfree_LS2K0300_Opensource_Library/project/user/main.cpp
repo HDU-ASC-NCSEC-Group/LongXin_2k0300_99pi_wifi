@@ -33,60 +33,208 @@
 
 #include "zf_common_headfile.h"
 
-//中断引用
-timer_fd *pit_timer;
+// *************************** 例程硬件连接说明 ***************************
+//  久久派与主板使用54pin排线连接，再将久久派插到主板上面，确保插到底核心板与主板插座间没有缝隙即可
+//  久久派与主板使用54pin排线连接，再将久久派插到主板上面，确保插到底核心板与主板插座间没有缝隙即可
+//  久久派与主板使用54pin排线连接，再将久久派插到主板上面，确保插到底核心板与主板插座间没有缝隙即可
+//  使用本历程，就需要使用我们逐飞科技提供的内核。
+// 
+// *************************** 例程使用步骤说明 ***************************
+// 1.根据硬件连接说明连接好模块，使用电源供电(下载器供电会导致模块电压不足)
+//
+// 2.查看电脑所连接的wifi，记录IP地址
+//
+// 3.在下方的代码区域中修改宏定义，SERVER_IP为电脑的IP地址，PORT为端口号
+//
+// 5.下载例程到久久派中
+//
+// 6.打开逐飞助手，设置为TCP，设置端口，选择合适的本机地址后点击连接
+//
+//
+// *************************** 例程测试说明 ***************************
+// 1.当本机设备成功连接到目标后（例如电脑使用逐飞助手上位机进入TCP模式 然后本机连接到电脑的 IP 与端口）
+//
+// 2.打开逐飞助手软件的图像显示，就可以看到灰度图像
+// 
+// 如果发现现象与说明严重不符 请参照本文件最下方 例程常见问题说明 进行排查
+//
+// **************************** 代码区域 ****************************
 
-#define KEY_0       "/dev/zf_driver_gpio_key_0"
-#define KEY_1       "/dev/zf_driver_gpio_key_1"
-#define KEY_2       "/dev/zf_driver_gpio_key_2"
-#define KEY_3       "/dev/zf_driver_gpio_key_3"
-#define SWITCH_0    "/dev/zf_driver_gpio_switch_0"
-#define SWITCH_1    "/dev/zf_driver_gpio_switch_1"
 
-uint32_t i = 0;
+#define SERVER_IP "172.20.10.5"
+#define PORT 8888
 
-//中断函数，每次中断触发时会执行该函数，把你要放在中断里的代码放在这里面
-void pit_callback()
+
+// **************************** 代码区域 ****************************
+
+//0：不包含边界信息  
+//1：包含三条边线信息，边线信息只包含横轴坐标，纵轴坐标由图像高度得到，意味着每个边界在一行中只会有一个点
+//2：包含三条边线信息，边界信息只含有纵轴坐标，横轴坐标由图像宽度得到，意味着每个边界在一列中只会有一个点，一般来说很少有这样的使用需求
+//3：包含三条边线信息，边界信息含有横纵轴坐标，意味着你可以指定每个点的横纵坐标，边线的数量也可以大于或者小于图像的高度，通常来说边线数量大于图像的高度，一般是搜线算法能找出回弯的情况
+//4：没有图像信息，仅包含三条边线信息，边线信息只包含横轴坐标，纵轴坐标由图像高度得到，意味着每个边界在一行中只会有一个点，这样的方式可以极大的降低传输的数据量
+#define INCLUDE_BOUNDARY_TYPE   0
+
+
+
+// 边界的点数量远大于图像高度，便于保存回弯的情况
+#define BOUNDARY_NUM            (UVC_HEIGHT * 4 / 2)
+
+// 只有X边界
+uint8 xy_x1_boundary[BOUNDARY_NUM], xy_x2_boundary[BOUNDARY_NUM], xy_x3_boundary[BOUNDARY_NUM];
+
+// 只有Y边界
+uint8 xy_y1_boundary[BOUNDARY_NUM], xy_y2_boundary[BOUNDARY_NUM], xy_y3_boundary[BOUNDARY_NUM];
+
+// X Y边界都是单独指定的
+uint8 x1_boundary[UVC_HEIGHT], x2_boundary[UVC_HEIGHT], x3_boundary[UVC_HEIGHT];
+uint8 y1_boundary[UVC_WIDTH], y2_boundary[UVC_WIDTH], y3_boundary[UVC_WIDTH];
+
+
+uint8 image_copy[UVC_HEIGHT][UVC_WIDTH];
+
+int main() 
 {
-    printf("pit_callback\r\n");
-}
+#if(1 == INCLUDE_BOUNDARY_TYPE || 2 == INCLUDE_BOUNDARY_TYPE || 4 == INCLUDE_BOUNDARY_TYPE)
+    int32 i = 0;
+#elif(3 == INCLUDE_BOUNDARY_TYPE)
+int32 i = 0;
+    int32 j = 0;
+#endif
 
-//中断退出提示
-void sigint_handler(int signum) 
-{
-    printf("收到Ctrl+C，程序即将退出\n");
-    exit(0);
-}
-
-int main(int, char**) 
-{
-    // IPS200 初始化
-    ips200_init("/dev/fb0");
-    ips200_clear();  // 清屏为默认背景色（白色）
-
-    ips200_show_string(0, 0, "imu963_gyro      imu963_acc");  
-
-    // 获取 IMU 设备信息
-    imu_get_dev_info();  
-
-    // 创建一个定时器1ms周期，回调函数为pit_callback
-    pit_timer = new timer_fd(1, pit_callback);
-    pit_timer->start();
-
-    while(1)
+    // 初始化TCP客户端,需要先打开TCP服务器,这才不会卡主。
+    // 初始化TCP客户端,需要先打开TCP服务器,这才不会卡主。
+    // 初始化TCP客户端,需要先打开TCP服务器,这才不会卡主。
+    if(tcp_client_init(SERVER_IP, PORT) == 0)
     {
-        // 读取 IMU 原始值（每次循环更新）
-        imu963ra_get_gyro();
-        imu963ra_get_acc();
-
-        // ips200_show_int(0,16,imu963ra_gyro_x,5);
-        // ips200_show_int(0,32,imu963ra_gyro_y,5);
-        // ips200_show_int(0,48,imu963ra_gyro_z,5);
-
-        // ips200_show_int(70,16,imu963ra_acc_x,5);
-        // ips200_show_int(70,32,imu963ra_acc_y,5);
-        // ips200_show_int(70,48,imu963ra_acc_z,5);
-        
-        system_delay_ms(100);
+        printf("tcp_client ok\r\n");
     }
+    else
+    {
+        printf("tcp_client error\r\n");
+        return -1;
+    }
+
+    // 逐飞助手初始化 设置回调函数
+    seekfree_assistant_interface_init(tcp_client_send_data, tcp_client_read_data);
+
+#if(0 == INCLUDE_BOUNDARY_TYPE)
+    // 发送摄像头图像图像信息(仅包含原始图像信息)
+    seekfree_assistant_camera_information_config(SEEKFREE_ASSISTANT_MT9V03X, image_copy[0], UVC_WIDTH, UVC_HEIGHT);
+
+
+#elif(1 == INCLUDE_BOUNDARY_TYPE)
+    // 发送摄像头图像图像信息(并且包含三条边界信息，边界信息只含有横轴坐标，纵轴坐标由图像高度得到，意味着每个边界在一行中只会有一个点)
+    // 对边界数组写入数据
+    for(i = 0; i < UVC_HEIGHT; i++)
+    {
+        x1_boundary[i] = 50 - (50 - 20) * i / UVC_HEIGHT;
+        x2_boundary[i] = UVC_WIDTH / 2;
+        x3_boundary[i] = 70 + (148 - 70) * i / UVC_HEIGHT;
+    }
+    seekfree_assistant_camera_information_config(SEEKFREE_ASSISTANT_MT9V03X, image_copy[0], UVC_WIDTH, UVC_HEIGHT);
+    seekfree_assistant_camera_boundary_config(X_BOUNDARY, UVC_HEIGHT, x1_boundary, x2_boundary, x3_boundary, NULL, NULL ,NULL);
+
+
+#elif(2 == INCLUDE_BOUNDARY_TYPE)
+    // 发送摄像头图像图像信息(并且包含三条边界信息，边界信息只含有纵轴坐标，横轴坐标由图像宽度得到，意味着每个边界在一列中只会有一个点)
+    // 通常很少有这样的使用需求
+    // 对边界数组写入数据
+    for(i = 0; i < UVC_WIDTH; i++)
+    {
+        y1_boundary[i] = 50 - (50 - 20) * i / UVC_HEIGHT;
+        y2_boundary[i] = UVC_WIDTH / 2;
+        y3_boundary[i] = 78 + (78 - 58) * i / UVC_HEIGHT;
+    }
+    seekfree_assistant_camera_information_config(SEEKFREE_ASSISTANT_MT9V03X, image_copy[0], UVC_WIDTH, UVC_HEIGHT);
+    seekfree_assistant_camera_boundary_config(Y_BOUNDARY, UVC_WIDTH, NULL, NULL ,NULL, y1_boundary, y2_boundary, y3_boundary);
+
+
+#elif(3 == INCLUDE_BOUNDARY_TYPE)
+    // 发送摄像头图像图像信息(并且包含三条边界信息，边界信息含有横纵轴坐标)
+    // 这样的方式可以实现对于有回弯的边界显示
+    j = 0;
+    for(i = UVC_HEIGHT - 1; i >= UVC_HEIGHT / 2; i--)
+    {
+        // 直线部分
+        xy_x1_boundary[j] = 34;
+        xy_y1_boundary[j] = i;
+        
+        xy_x2_boundary[j] = 47;
+        xy_y2_boundary[j] = i;
+        
+        xy_x3_boundary[j] = 60;
+        xy_y3_boundary[j] = i;
+        j++;
+    }
+
+    for(i = UVC_HEIGHT / 2 - 1; i >= 0; i--)
+    {
+        // 直线连接弯道部分
+        xy_x1_boundary[j] = 34 + (UVC_HEIGHT / 2 - i) * (UVC_WIDTH / 2 - 34) / (UVC_HEIGHT / 2);
+        xy_y1_boundary[j] = i;
+        
+        xy_x2_boundary[j] = 47 + (UVC_HEIGHT / 2 - i) * (UVC_WIDTH / 2 - 47) / (UVC_HEIGHT / 2);
+        xy_y2_boundary[j] = 15 + i * 3 / 4;
+        
+        xy_x3_boundary[j] = 60 + (UVC_HEIGHT / 2 - i) * (UVC_WIDTH / 2 - 60) / (UVC_HEIGHT / 2);
+        xy_y3_boundary[j] = 30 + i / 2;
+        j++;
+    }
+
+    for(i = 0; i < UVC_HEIGHT / 2; i++)
+    {
+        // 回弯部分
+        xy_x1_boundary[j] = UVC_WIDTH / 2 + i * (138 - UVC_WIDTH / 2) / (UVC_HEIGHT / 2);
+        xy_y1_boundary[j] = i;
+        
+        xy_x2_boundary[j] = UVC_WIDTH / 2 + i * (133 - UVC_WIDTH / 2) / (UVC_HEIGHT / 2);
+        xy_y2_boundary[j] = 15 + i * 3 / 4;
+        
+        xy_x3_boundary[j] = UVC_WIDTH / 2 + i * (128 - UVC_WIDTH / 2) / (UVC_HEIGHT / 2);
+        xy_y3_boundary[j] = 30 + i / 2;
+        j++;
+    }
+    seekfree_assistant_camera_information_config(SEEKFREE_ASSISTANT_MT9V03X, image_copy[0], UVC_WIDTH, UVC_HEIGHT);
+    seekfree_assistant_camera_boundary_config(XY_BOUNDARY, BOUNDARY_NUM, xy_x1_boundary, xy_x2_boundary, xy_x3_boundary, xy_y1_boundary, xy_y2_boundary, xy_y3_boundary);
+
+
+#elif(4 == INCLUDE_BOUNDARY_TYPE)
+    // 发送摄像头图像图像信息(并且包含三条边界信息，边界信息只含有横轴坐标，纵轴坐标由图像高度得到，意味着每个边界在一行中只会有一个点)
+    // 对边界数组写入数据
+    for(i = 0; i < UVC_HEIGHT; i++)
+    {
+        x1_boundary[i] = 70 - (70 - 20) * i / UVC_HEIGHT;
+        x2_boundary[i] = UVC_WIDTH / 2;
+        x3_boundary[i] = 80 + (159 - 80) * i / UVC_HEIGHT;
+    }
+    seekfree_assistant_camera_information_config(SEEKFREE_ASSISTANT_MT9V03X, NULL, UVC_WIDTH, UVC_HEIGHT);
+    seekfree_assistant_camera_boundary_config(X_BOUNDARY, UVC_HEIGHT, x1_boundary, x2_boundary, x3_boundary, NULL, NULL ,NULL);
+
+
+#endif
+
+
+    // 初始化UVC摄像头
+    if(uvc_camera_init("/dev/video0") < 0)
+    {
+        return -1;
+    }
+
+    while (true) 
+    {
+
+        // 阻塞式等待，图像刷新
+        if(wait_image_refresh() < 0)
+        {
+            // 摄像头未采集到图像，这里需要关闭电机，关闭电调等。
+            exit(0);
+        }
+
+        memcpy(image_copy[0], rgay_image, UVC_WIDTH * UVC_HEIGHT);
+
+        seekfree_assistant_camera_send();
+    }
+
+
+    return 0;
 }
