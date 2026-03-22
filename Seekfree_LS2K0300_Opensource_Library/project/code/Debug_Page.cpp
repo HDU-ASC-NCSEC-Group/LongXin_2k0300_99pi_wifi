@@ -127,8 +127,15 @@ int Debug_Page_Menu(void)
             switch (Debug_Page_flag)
             {
                 case 1:
+                    ips200_clear();
                     Debug_Page_Menu_UI(1);
                     ips200_show_string(0  ,32 , ">");
+
+                    break;
+                case 2:
+                    ips200_clear();
+                    Debug_Page_Menu_UI(1);
+                    ips200_show_string(0  ,48 , ">");
 
                     break;
             }
@@ -185,7 +192,7 @@ int Debug_BUZ(void)
 int Debug_MOTOR(void)
 {  
     // 电机调试 标志位
-    uint8_t Debug_MOTOR_flag = 0;
+    uint8_t Debug_MOTOR_flag = 1;
     // 存储确认键被按下时Debug_MOTOR_flag的值的临时变量，默认为无效值0
     uint8_t Debug_MOTOR_flag_temp = 0;
 
@@ -193,6 +200,11 @@ int Debug_MOTOR(void)
     ips200_show_string(0  ,32 , ">");
 
     int16_t DUTY[4] = {0,0,0,0};
+
+    ips200_Printf(50 ,32 , "%d    ", DUTY[0]); 
+    ips200_Printf(50 ,48 , "%d    ", DUTY[1]); 
+    ips200_Printf(50 ,64 , "%d    ", DUTY[2]); 
+    ips200_Printf(50 ,80 , "%d    ", DUTY[3]); 
     // 电机位号对应示意图
     // #1 [][][] 3#
     // #1 [][][] 3#
@@ -245,23 +257,23 @@ int Debug_MOTOR(void)
             /* 按键处理*/       
             if (Key_Check(KEY_NAME_UP,KEY_SINGLE)) 
             {
-                DUTY[Debug_MOTOR_flag_temp - 1] += 100;
-                if (DUTY[Debug_MOTOR_flag_temp - 1] >  (int16_t)MOTOR1_PWM_DUTY_MAX)
+                DUTY[Debug_MOTOR_flag_temp - 1] += 5;
+                if (DUTY[Debug_MOTOR_flag_temp - 1] >  100)
                 {
-                    DUTY[Debug_MOTOR_flag_temp - 1] =  (int16_t)MOTOR1_PWM_DUTY_MAX;
+                    DUTY[Debug_MOTOR_flag_temp - 1] =  100;
                 }
                 Motor_Set(Debug_MOTOR_flag_temp, DUTY[Debug_MOTOR_flag_temp - 1]);                        
-                ips200_Printf(40 ,16 + Debug_MOTOR_flag_temp * 16, "%d    ", DUTY[Debug_MOTOR_flag_temp - 1]);   
+                ips200_Printf(50 ,16 + Debug_MOTOR_flag_temp * 16, "%d    ", DUTY[Debug_MOTOR_flag_temp - 1]);   
             }
             else if (Key_Check(KEY_NAME_DOWN,KEY_SINGLE)) 
             {
-                DUTY[Debug_MOTOR_flag_temp - 1] -= 100;
-                if (DUTY[Debug_MOTOR_flag_temp - 1] < (int16_t)-MOTOR1_PWM_DUTY_MAX)
+                DUTY[Debug_MOTOR_flag_temp - 1] -= 5;
+                if (DUTY[Debug_MOTOR_flag_temp - 1] < -100)
                 {
-                    DUTY[Debug_MOTOR_flag_temp - 1] = (int16_t)-MOTOR1_PWM_DUTY_MAX;
+                    DUTY[Debug_MOTOR_flag_temp - 1] = -100;
                 }
                 Motor_Set(Debug_MOTOR_flag_temp, DUTY[Debug_MOTOR_flag_temp - 1]);
-                ips200_Printf(40 ,16 + Debug_MOTOR_flag_temp * 16, "%d    ", DUTY[Debug_MOTOR_flag_temp - 1]);  
+                ips200_Printf(50 ,16 + Debug_MOTOR_flag_temp * 16, "%d    ", DUTY[Debug_MOTOR_flag_temp - 1]);  
             }
             else if ((Key_Check(KEY_NAME_CONFIRM,KEY_SINGLE)) || (Key_Check(KEY_NAME_BACK,KEY_SINGLE)))
             {
