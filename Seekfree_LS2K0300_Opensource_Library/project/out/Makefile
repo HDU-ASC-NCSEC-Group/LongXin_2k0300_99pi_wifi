@@ -609,6 +609,30 @@ home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/li
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/project.dir/build.make CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/libraries/zf_driver/zf_driver_udp.cpp.s
 .PHONY : home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/libraries/zf_driver/zf_driver_udp.cpp.s
 
+home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.o: home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o
+.PHONY : home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.o
+
+# target to build an object file
+home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/project.dir/build.make CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o
+.PHONY : home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o
+
+home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.i: home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.i
+.PHONY : home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.i
+
+# target to preprocess a source file
+home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/project.dir/build.make CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.i
+.PHONY : home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.i
+
+home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.s: home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.s
+.PHONY : home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.s
+
+# target to generate assembly for a file
+home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/project.dir/build.make CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.s
+.PHONY : home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.s
+
 home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.o: home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.cpp.o
 .PHONY : home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.o
 
@@ -632,30 +656,6 @@ home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/pr
 home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/project.dir/build.make CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.cpp.s
 .PHONY : home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.cpp.s
-
-image_progess.o: image_progess.cpp.o
-.PHONY : image_progess.o
-
-# target to build an object file
-image_progess.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/project.dir/build.make CMakeFiles/project.dir/image_progess.cpp.o
-.PHONY : image_progess.cpp.o
-
-image_progess.i: image_progess.cpp.i
-.PHONY : image_progess.i
-
-# target to preprocess a source file
-image_progess.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/project.dir/build.make CMakeFiles/project.dir/image_progess.cpp.i
-.PHONY : image_progess.cpp.i
-
-image_progess.s: image_progess.cpp.s
-.PHONY : image_progess.s
-
-# target to generate assembly for a file
-image_progess.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/project.dir/build.make CMakeFiles/project.dir/image_progess.cpp.s
-.PHONY : image_progess.cpp.s
 
 main.o: main.cpp.o
 .PHONY : main.o
@@ -750,12 +750,12 @@ help:
 	@echo "... home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/libraries/zf_driver/zf_driver_udp.o"
 	@echo "... home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/libraries/zf_driver/zf_driver_udp.i"
 	@echo "... home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/libraries/zf_driver/zf_driver_udp.s"
+	@echo "... home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.o"
+	@echo "... home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.i"
+	@echo "... home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.s"
 	@echo "... home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.o"
 	@echo "... home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.i"
 	@echo "... home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.s"
-	@echo "... image_progess.o"
-	@echo "... image_progess.i"
-	@echo "... image_progess.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

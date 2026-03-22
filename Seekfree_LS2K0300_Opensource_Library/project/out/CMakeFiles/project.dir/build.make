@@ -69,24 +69,10 @@ include CMakeFiles/project.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/project.dir/flags.make
 
-CMakeFiles/project.dir/image_progess.cpp.o: CMakeFiles/project.dir/flags.make
-CMakeFiles/project.dir/image_progess.cpp.o: /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/user/image_progess.cpp
-CMakeFiles/project.dir/image_progess.cpp.o: CMakeFiles/project.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/out/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/project.dir/image_progess.cpp.o"
-	/opt/ls_2k0300_env/loongson-gnu-toolchain-8.3-x86_64-loongarch64-linux-gnu-rc1.6/bin/loongarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/project.dir/image_progess.cpp.o -MF CMakeFiles/project.dir/image_progess.cpp.o.d -o CMakeFiles/project.dir/image_progess.cpp.o -c /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/user/image_progess.cpp
-
-CMakeFiles/project.dir/image_progess.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/project.dir/image_progess.cpp.i"
-	/opt/ls_2k0300_env/loongson-gnu-toolchain-8.3-x86_64-loongarch64-linux-gnu-rc1.6/bin/loongarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/user/image_progess.cpp > CMakeFiles/project.dir/image_progess.cpp.i
-
-CMakeFiles/project.dir/image_progess.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/project.dir/image_progess.cpp.s"
-	/opt/ls_2k0300_env/loongson-gnu-toolchain-8.3-x86_64-loongarch64-linux-gnu-rc1.6/bin/loongarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/user/image_progess.cpp -o CMakeFiles/project.dir/image_progess.cpp.s
-
 CMakeFiles/project.dir/main.cpp.o: CMakeFiles/project.dir/flags.make
 CMakeFiles/project.dir/main.cpp.o: /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/user/main.cpp
 CMakeFiles/project.dir/main.cpp.o: CMakeFiles/project.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/out/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/project.dir/main.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/out/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/project.dir/main.cpp.o"
 	/opt/ls_2k0300_env/loongson-gnu-toolchain-8.3-x86_64-loongarch64-linux-gnu-rc1.6/bin/loongarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/project.dir/main.cpp.o -MF CMakeFiles/project.dir/main.cpp.o.d -o CMakeFiles/project.dir/main.cpp.o -c /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/user/main.cpp
 
 CMakeFiles/project.dir/main.cpp.i: cmake_force
@@ -96,6 +82,20 @@ CMakeFiles/project.dir/main.cpp.i: cmake_force
 CMakeFiles/project.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/project.dir/main.cpp.s"
 	/opt/ls_2k0300_env/loongson-gnu-toolchain-8.3-x86_64-loongarch64-linux-gnu-rc1.6/bin/loongarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/user/main.cpp -o CMakeFiles/project.dir/main.cpp.s
+
+CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o: CMakeFiles/project.dir/flags.make
+CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o: /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp
+CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o: CMakeFiles/project.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/out/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o"
+	/opt/ls_2k0300_env/loongson-gnu-toolchain-8.3-x86_64-loongarch64-linux-gnu-rc1.6/bin/loongarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o -MF CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o.d -o CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o -c /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp
+
+CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.i"
+	/opt/ls_2k0300_env/loongson-gnu-toolchain-8.3-x86_64-loongarch64-linux-gnu-rc1.6/bin/loongarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp > CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.i
+
+CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.s"
+	/opt/ls_2k0300_env/loongson-gnu-toolchain-8.3-x86_64-loongarch64-linux-gnu-rc1.6/bin/loongarch64-linux-gnu-g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp -o CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.s
 
 CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.cpp.o: CMakeFiles/project.dir/flags.make
 CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.cpp.o: /home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.cpp
@@ -393,8 +393,8 @@ CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K030
 
 # Object files for target project
 project_OBJECTS = \
-"CMakeFiles/project.dir/image_progess.cpp.o" \
 "CMakeFiles/project.dir/main.cpp.o" \
+"CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o" \
 "CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.cpp.o" \
 "CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/libraries/zf_common/zf_common_fifo.cpp.o" \
 "CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/libraries/zf_common/zf_common_font.cpp.o" \
@@ -420,8 +420,8 @@ project_OBJECTS = \
 # External object files for target project
 project_EXTERNAL_OBJECTS =
 
-project: CMakeFiles/project.dir/image_progess.cpp.o
 project: CMakeFiles/project.dir/main.cpp.o
+project: CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/image_process.cpp.o
 project: CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/project/code/quaternion.cpp.o
 project: CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/libraries/zf_common/zf_common_fifo.cpp.o
 project: CMakeFiles/project.dir/home/lwq/桌面/LongXin_2k0300_99pi_wifi/Seekfree_LS2K0300_Opensource_Library/libraries/zf_common/zf_common_font.cpp.o
