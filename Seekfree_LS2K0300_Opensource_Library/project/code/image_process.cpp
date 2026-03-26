@@ -166,3 +166,8 @@ void object_tracking(void)
     coordinate_y = red_center.y;
     servo_test();
 }
+
+void coordinate_transformation(void)
+{
+    
+}
