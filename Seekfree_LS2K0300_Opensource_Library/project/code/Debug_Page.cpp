@@ -131,6 +131,7 @@ int Debug_Page_Menu(void)
                     Debug_Page_Menu_UI(1);
                     ips200_show_string(0  ,32 , ">");
 
+                    break;
                 case 2:
                     ips200_clear();
                     Debug_Page_Menu_UI(1);
