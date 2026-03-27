@@ -35,6 +35,21 @@
 
 extern struct pwm_info servo_pwm_info;
 
+timer_fd *pit_timer;
+
+float roll, pitch, yaw;
+
+void pit_callback()
+{
+    // 获取IMU数据并更新四元数滤波器
+    imu963ra_get_acc();
+    imu963ra_get_gyro();
+    imu963ra_get_mag();
+    //四元数更新
+    quaternion_update();
+}
+
+
 void sigint_handler(int signum) 
 {
     printf("收到Ctrl+C，程序即将退出\n");
@@ -53,8 +68,14 @@ int main(int, char**)
     atexit(cleanup);
     signal(SIGINT, sigint_handler);
 
+    //获取imu963ra设备信息
+    // imu_get_dev_info();
+
     // 初始化屏幕
     ips200_init("/dev/fb0");
+
+    // 初始化四元数滤波器（比例增益0.5，积分增益0.0，可根据实际情况调整）
+    quaternion_init(0.5f, 0.0f);
 
     // 初始化UVC摄像头
     if (uvc_camera_init("/dev/video0") < 0) {
@@ -64,13 +85,21 @@ int main(int, char**)
     // 获取PWM设备信息
     pwm_get_dev_info(SERVO_MOTOR1_PWM, &servo_pwm_info);
 
+    // 创建一个定时器1ms周期，回调函数为pit_callback
+    pit_timer = new timer_fd(1, pit_callback);
+    pit_timer->start();
+
     // 打印PWM频率和duty最大值
-    printf("servo pwm freq = %d Hz\r\n", servo_pwm_info.freq);
-    printf("servo pwm duty_max = %d\r\n", servo_pwm_info.duty_max);
+    // printf("servo pwm freq = %d Hz\r\n", servo_pwm_info.freq);
+    // printf("servo pwm duty_max = %d\r\n", servo_pwm_info.duty_max);
 
     // 主循环
     while (1) {
-        object_tracking();  // 红色物块跟踪显示
+        //object_tracking();  // 红色物块跟踪显示
+        // 打印yaw值
+        quaternion_get_euler(&roll, &pitch, &yaw);
+        printf("roll=%.2f pitch=%.2f yaw=%.2f\r\n", roll, pitch, yaw);
+        system_delay_ms(10);
     }
 
     return 0;
