@@ -5,6 +5,7 @@
 #include "Key.h"
 #include "Motor.h"
 #include "Debug_Page.h"
+#include "zf_device_imu_core.h"
 
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -16,11 +17,14 @@ void Peripheral_Init(void)
 {
     // IPS200 初始化
     ips200_init("/dev/fb0");
-    ips200_clear();  // 清屏为默认背景色（白色）
-//    ips200_full(RGB565_BLACK);    // 填充黑色 
+    ips200_clear();
+//    ips200_full(RGB565_BLACK);
 
     // 电机初始化调用
     Motor_Init();
+
+    // IMU 初始化
+    imu_get_dev_info();
 }
 
 /*******************************************************************************************************************/

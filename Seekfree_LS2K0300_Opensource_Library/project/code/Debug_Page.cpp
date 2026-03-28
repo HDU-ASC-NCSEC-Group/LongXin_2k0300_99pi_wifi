@@ -358,27 +358,27 @@ int Debug_IMU963RA(void)
     Debug_IMU963RA_UI();
     
     /* 半阻塞式IMU963RA零飘此时请保持静此时请保持静止)*/
-	if (IMU963RA_Calibration_Check() != 2)// 如果未校准
-	{
-        ips200_show_string(40 , 32 , "ING~");
-	    IMU963RA_Calibration_Start();
-	}
-	// 半阻塞式零飘校准
-	while(1)
-    {
-        if (IMU963RA_Calibration_Check() == 2)  // 零飘校准完成
-        {
-            break;  // 结束零飘校准
-        }      
-        // 可以考虑在这里操作OLED，但请注意OLED对时间的占用
-        
-        // 强制零飘校准退出
-        if (Key_Check(KEY_NAME_BACK,KEY_SINGLE)) 
-        {
-            break;  // 中止零飘校准
-        }        
-    }
-    ips200_show_string(40 , 32 , "DONE");
+//	if (IMU963RA_Calibration_Check() != 2)// 如果未校准
+//	{
+//        ips200_show_string(40 , 32 , "ING~");
+//	    IMU963RA_Calibration_Start();
+//	}
+//	// 半阻塞式零飘校准
+//	while(1)
+//    {
+//        if (IMU963RA_Calibration_Check() == 2)  // 零飘校准完成
+//        {
+//            break;  // 结束零飘校准
+//        }      
+//        // 可以考虑在这里操作OLED，但请注意OLED对时间的占用
+//        
+//        // 强制零飘校准退出
+//        if (Key_Check(KEY_NAME_BACK,KEY_SINGLE)) 
+//        {
+//            break;  // 中止零飘校准
+//        }        
+//    }
+//    ips200_show_string(40 , 32 , "DONE");
 
 
     while(1)
@@ -419,15 +419,15 @@ int Debug_IMU963RA(void)
                 return 0;   
             }
 
-            ips200_Printf(24 ,48 , "%3.1f  ", imu963ra_acc_x);
-            ips200_Printf(104 ,48 , "%3.1f  ", imu963ra_acc_y);
-            ips200_Printf(184 ,48 , "%3.1f  ", imu963ra_acc_z);
-            ips200_Printf(24 ,64 , "%3.1f  ", imu963ra_gyro_x);
-            ips200_Printf(104 ,64 , "%3.1f  ", imu963ra_gyro_y);
-            ips200_Printf(184 ,64 , "%3.1f  ", imu963ra_gyro_z);
-            ips200_Printf(24 ,80 , "%3.1f  ", imu963ra_mag_x);
-            ips200_Printf(104 ,80 , "%3.1f  ", imu963ra_mag_y);
-            ips200_Printf(184 ,80 , "%3.2f  ", imu963ra_mag_z);
+            ips200_Printf(24 ,48 , "%d  ", imu963ra_acc_x);
+            ips200_Printf(104,48 , "%d  ", imu963ra_acc_y);
+            ips200_Printf(184,48 , "%d  ", imu963ra_acc_z);
+            ips200_Printf(24 ,64 , "%d  ", imu963ra_gyro_x);
+            ips200_Printf(104,64 , "%d  ", imu963ra_gyro_y);
+            ips200_Printf(184,64 , "%d  ", imu963ra_gyro_z);
+            ips200_Printf(24 ,80 , "%d  ", imu963ra_mag_x);
+            ips200_Printf(104,80 , "%d  ", imu963ra_mag_y);
+            ips200_Printf(184,80 , "%d  ", imu963ra_mag_z);
         
     }
 }
