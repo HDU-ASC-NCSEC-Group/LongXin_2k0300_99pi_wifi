@@ -6,6 +6,12 @@
 #define __KEY_H__
 
 
+// 按键宏定义
+#define KEY_DEFINE_UP       "/dev/zf_driver_gpio_key_3"    //P16;S3
+#define KEY_DEFINE_DOWN     "/dev/zf_driver_gpio_key_2"    //P15;S4
+#define KEY_DEFINE_CONFIRM  "/dev/zf_driver_gpio_key_1"    //P14;S5
+#define KEY_DEFINE_BACK     "/dev/zf_driver_gpio_key_0"    //P13;S6
+
 //用宏定义替换1/0，便于理解Key_GetState（）
 #define KEY_PRESSED 			1
 #define	KEY_UNPRESSED			0

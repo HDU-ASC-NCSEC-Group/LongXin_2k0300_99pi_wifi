@@ -1,10 +1,13 @@
-
+/********************************************************************************************************************
+* Debug模式菜单文件
+********************************************************************************************************************/
 #include "zf_common_headfile.h"
 
 #include "defines.h"
+#include "IMU_Analysis.h"
 #include "Key.h"
 #include "Motor.h"
-#include "IMU_Analysis.h"
+
 
 
 /*******************************************************************************************************************/
@@ -56,7 +59,7 @@ void Debug_IMU963RA_UI(void)
     ips200_show_string(0  , 48 , "ax:       ay:       az:       ");
     ips200_show_string(0  , 64 , "gx:       gy:       gz:       ");
     ips200_show_string(0  , 80 , "mx:       my:       mz:       ");
-    ips200_show_string(0  , 96 , "Ro:       Pi:       Ya:       ");
+    ips200_show_string(0  , 96 , "Ro:       Ya:       Pi:       ");
 }
 /*******************************************************************************************************************/
 /*--------------------------------------------------------------------------------------------------[E] 菜单样式 [E]*/
@@ -358,27 +361,27 @@ int Debug_IMU963RA(void)
     Debug_IMU963RA_UI();
     
     /* 半阻塞式IMU963RA零飘此时请保持静此时请保持静止)*/
-//	if (IMU963RA_Calibration_Check() != 2)// 如果未校准
-//	{
-//        ips200_show_string(40 , 32 , "ING~");
-//	    IMU963RA_Calibration_Start();
-//	}
-//	// 半阻塞式零飘校准
-//	while(1)
-//    {
-//        if (IMU963RA_Calibration_Check() == 2)  // 零飘校准完成
-//        {
-//            break;  // 结束零飘校准
-//        }      
-//        // 可以考虑在这里操作OLED，但请注意OLED对时间的占用
-//        
-//        // 强制零飘校准退出
-//        if (Key_Check(KEY_NAME_BACK,KEY_SINGLE)) 
-//        {
-//            break;  // 中止零飘校准
-//        }        
-//    }
-//    ips200_show_string(40 , 32 , "DONE");
+	if (IMU963RA_Calibration_Check() != 2)// 如果未校准
+	{
+        ips200_show_string(40 , 32 , "ING~");
+	    IMU963RA_Calibration_Start();
+	}
+	// 半阻塞式零飘校准
+	while(1)
+    {
+        if (IMU963RA_Calibration_Check() == 2)  // 零飘校准完成
+        {
+            break;  // 结束零飘校准
+        }      
+        // 可以考虑在这里操作OLED，但请注意OLED对时间的占用
+        
+        // 强制零飘校准退出
+        if (Key_Check(KEY_NAME_BACK,KEY_SINGLE)) 
+        {
+            break;  // 中止零飘校准
+        }        
+    }
+    ips200_show_string(40 , 32 , "DONE");
 
 
     while(1)
@@ -419,6 +422,12 @@ int Debug_IMU963RA(void)
                 return 0;   
             }
 
+            if (IMU963RA_analysis_enable)
+            {
+                IMU963RA_AHRS_Update();
+                IMU963RA_analysis_enable = 0;
+            }
+
             ips200_Printf(24 ,48 , "%d  ", imu963ra_acc_x);
             ips200_Printf(104,48 , "%d  ", imu963ra_acc_y);
             ips200_Printf(184,48 , "%d  ", imu963ra_acc_z);
@@ -428,6 +437,9 @@ int Debug_IMU963RA(void)
             ips200_Printf(24 ,80 , "%d  ", imu963ra_mag_x);
             ips200_Printf(104,80 , "%d  ", imu963ra_mag_y);
             ips200_Printf(184,80 , "%d  ", imu963ra_mag_z);
+            ips200_Printf(24 ,96 , "%.1f  ", Roll_Result);
+            ips200_Printf(104,96 , "%.1f  ", Yaw_Result);
+            ips200_Printf(184,96 , "%.1f  ", Pitch_Result);
         
     }
 }

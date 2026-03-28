@@ -49,7 +49,7 @@ timer_fd *pit_timer_10ms;
 
 void pit_callback_5ms()
 {
-    imu963ra_get_data();
+    IMU963RA_analysis_enable = 1;
 }
 
 void pit_callback_10ms()
@@ -72,7 +72,7 @@ void cleanup()
     // 需要先停止定时器线程，后面才能稳定关闭电机，电调，舵机等
     pit_timer_5ms->stop();
     pit_timer_10ms->stop();
-    printf("程序异常退出，执行清理操作\n");
+    printf("程序退出，执行清理操作\n");
     Motor_Reset_ALL();
 }
 // 宣告程序退出函数
