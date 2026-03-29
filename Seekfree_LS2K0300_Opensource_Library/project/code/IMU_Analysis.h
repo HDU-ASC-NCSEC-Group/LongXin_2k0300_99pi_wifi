@@ -5,7 +5,7 @@
 #define __IMU_ANALYSIS_H__
 
 // 是否启用磁力计
-#define IMU_ANALYSIS_USE_MAG 0
+#define IMU_ANALYSIS_USE_MAG 1
 
 // 全局变量声明
 extern volatile float Yaw_Result;    // 偏航角（Yaw）

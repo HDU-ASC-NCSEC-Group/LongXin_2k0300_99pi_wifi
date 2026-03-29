@@ -71,7 +71,7 @@ void IMU963RA_Init_Scale(void)
 
 
 // 零飘校准校准需要的样本数
-#define CALIB_TARGET_SAMPLES    400  
+#define CALIB_TARGET_SAMPLES    1000  
 // 枚举定义校准状态
 typedef enum {
     CALIB_STATE_SPARE   = 0,          // 未开始
@@ -106,9 +106,162 @@ void imu963ra_update_data(void)
     imu963ra_get_mag();
 }
 
-// 条件编译选项
-#define ENABLE_FULL_EULER    1   // 1: 计算全部欧拉角, 0: 只计算Yaw角
+// Madgwick算法相关定义
+#define DEG2RAD (M_PI / 180.0f)
+#define RAD2DEG (180.0f / M_PI)
 
+typedef struct {
+    float x;
+    float y;
+    float z;
+} Axis3f;
+
+static float madgwick_q1 = 1.0f;
+static float madgwick_q2 = 0.0f;
+static float madgwick_q3 = 0.0f;
+static float madgwick_q4 = 0.0f;
+static float madgwick_beta = 0.1f;
+
+static std::chrono::steady_clock::time_point last_time_madgwick = std::chrono::steady_clock::now();
+
+static float Get_dt(void)
+{
+    auto current_time = std::chrono::steady_clock::now();
+    auto time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - last_time_madgwick).count();
+    float dt = (float)time_diff / 1000.0f;
+    if (dt > 0.05f) dt = 0.05f;
+    if (dt < 0.001f) dt = 0.001f;
+    last_time_madgwick = current_time;
+    return dt;
+}
+
+static float invSqrt(float x)
+{
+    float halfx = 0.5f * x;
+    union {
+        float f;
+        int32_t i;
+    } conv = {x};
+    conv.i = 0x5f3759df - (conv.i >> 1);
+    conv.f *= 1.5f - halfx * conv.f * conv.f;
+    return conv.f;
+}
+
+static void MadgwickQuaternionUpdate(Axis3f acc, Axis3f gyro, Axis3f mag, float dt)
+{
+    float recipNorm;
+    float s1, s2, s3, s4;
+    float qDot1, qDot2, qDot3, qDot4;
+    float hx, hy;
+    float _2q1mx, _2q1my, _2q1mz, _2q2mx, _2bx, _2bz, _4bx, _4bz, _2q1, _2q2, _2q3, _2q4, _2q1q3, _2q2q3, _2q3q4, q1q1, q1q2, q1q3, q1q4, q2q2, q2q3, q2q4, q3q3, q3q4, q4q4;
+
+    float ax = acc.x;
+    float ay = acc.y;
+    float az = acc.z;
+    float gx = gyro.x;
+    float gy = gyro.y;
+    float gz = gyro.z;
+    float mx = mag.x;
+    float my = mag.y;
+    float mz = mag.z;
+
+    if (!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
+        recipNorm = invSqrt(ax * ax + ay * ay + az * az);
+        ax *= recipNorm;
+        ay *= recipNorm;
+        az *= recipNorm;
+
+        if (!((mx == 0.0f) && (my == 0.0f) && (mz == 0.0f))) {
+            recipNorm = invSqrt(mx * mx + my * my + mz * mz);
+            mx *= recipNorm;
+            my *= recipNorm;
+            mz *= recipNorm;
+
+            _2q1mx = 2.0f * madgwick_q1 * mx;
+            _2q1my = 2.0f * madgwick_q1 * my;
+            _2q1mz = 2.0f * madgwick_q1 * mz;
+            _2q2mx = 2.0f * madgwick_q2 * mx;
+            _2q1 = 2.0f * madgwick_q1;
+            _2q2 = 2.0f * madgwick_q2;
+            _2q3 = 2.0f * madgwick_q3;
+            _2q4 = 2.0f * madgwick_q4;
+            _2q1q3 = 2.0f * madgwick_q1 * madgwick_q3;
+            _2q2q3 = 2.0f * madgwick_q2 * madgwick_q3;
+            _2q3q4 = 2.0f * madgwick_q3 * madgwick_q4;
+            q1q1 = madgwick_q1 * madgwick_q1;
+            q1q2 = madgwick_q1 * madgwick_q2;
+            q1q3 = madgwick_q1 * madgwick_q3;
+            q1q4 = madgwick_q1 * madgwick_q4;
+            q2q2 = madgwick_q2 * madgwick_q2;
+            q2q3 = madgwick_q2 * madgwick_q3;
+            q2q4 = madgwick_q2 * madgwick_q4;
+            q3q3 = madgwick_q3 * madgwick_q3;
+            q3q4 = madgwick_q3 * madgwick_q4;
+            q4q4 = madgwick_q4 * madgwick_q4;
+
+            hx = mx * q1q1 - _2q1my * madgwick_q4 + _2q1mz * madgwick_q3 + mx * q2q2 + _2q2 * my * madgwick_q3 + _2q2 * mz * madgwick_q4 - mx * q3q3 - mx * q4q4;
+            hy = _2q1mx * madgwick_q4 + my * q1q1 - _2q1mz * madgwick_q2 + _2q2mx * madgwick_q3 - my * q2q2 + my * q3q3 + _2q3 * mz * madgwick_q4 - my * q4q4;
+            _2bx = sqrtf(hx * hx + hy * hy);
+            _2bz = -_2q1mx * madgwick_q3 + _2q1my * madgwick_q2 + mz * q1q1 + _2q2mx * madgwick_q4 - mz * q2q2 + _2q3 * my * madgwick_q4 - mz * q3q3 + mz * q4q4;
+            _4bx = 2.0f * _2bx;
+            _4bz = 2.0f * _2bz;
+
+            s1 = -_2q3 * (2.0f * q2q4 - _2q1q3 - ax) + _2q2 * (2.0f * q1q2 + _2q3q4 - ay) - _2bz * madgwick_q3 * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (-_2bx * madgwick_q4 + _2bz * madgwick_q2) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + _2bx * madgwick_q3 * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+            s2 = _2q4 * (2.0f * q2q4 - _2q1q3 - ax) + _2q1 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * madgwick_q2 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az) + _2bz * madgwick_q4 * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (_2bx * madgwick_q3 + _2bz * madgwick_q1) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + (_2bx * madgwick_q4 - _4bz * madgwick_q2) * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+            s3 = -_2q1 * (2.0f * q2q4 - _2q1q3 - ax) + _2q4 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * madgwick_q3 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az) + (-_4bx * madgwick_q3 - _2bz * madgwick_q1) * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (_2bx * madgwick_q2 + _2bz * madgwick_q4) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + (_2bx * madgwick_q1 - _4bz * madgwick_q3) * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+            s4 = _2q2 * (2.0f * q2q4 - _2q1q3 - ax) + _2q3 * (2.0f * q1q2 + _2q3q4 - ay) + (-_4bx * madgwick_q4 + _2bz * madgwick_q2) * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (-_2bx * madgwick_q1 + _2bz * madgwick_q3) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + _2bx * madgwick_q2 * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
+        } else {
+            _2q1 = 2.0f * madgwick_q1;
+            _2q2 = 2.0f * madgwick_q2;
+            _2q3 = 2.0f * madgwick_q3;
+            _2q4 = 2.0f * madgwick_q4;
+            _2q1q3 = 2.0f * madgwick_q1 * madgwick_q3;
+            _2q2q3 = 2.0f * madgwick_q2 * madgwick_q3;
+            _2q3q4 = 2.0f * madgwick_q3 * madgwick_q4;
+            q1q1 = madgwick_q1 * madgwick_q1;
+            q1q2 = madgwick_q1 * madgwick_q2;
+            q1q3 = madgwick_q1 * madgwick_q3;
+            q1q4 = madgwick_q1 * madgwick_q4;
+            q2q2 = madgwick_q2 * madgwick_q2;
+            q2q4 = madgwick_q2 * madgwick_q4;
+            q3q3 = madgwick_q3 * madgwick_q3;
+            q3q4 = madgwick_q3 * madgwick_q4;
+            q4q4 = madgwick_q4 * madgwick_q4;
+
+            s1 = -_2q3 * (2.0f * q2q4 - _2q1q3 - ax) + _2q2 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * madgwick_q1 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az);
+            s2 = _2q4 * (2.0f * q2q4 - _2q1q3 - ax) + _2q1 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * madgwick_q2 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az);
+            s3 = -_2q1 * (2.0f * q2q4 - _2q1q3 - ax) + _2q4 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * madgwick_q3 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az);
+            s4 = _2q2 * (2.0f * q2q4 - _2q1q3 - ax) + _2q3 * (2.0f * q1q2 + _2q3q4 - ay);
+        }
+
+        recipNorm = invSqrt(s1 * s1 + s2 * s2 + s3 * s3 + s4 * s4);
+        s1 *= recipNorm;
+        s2 *= recipNorm;
+        s3 *= recipNorm;
+        s4 *= recipNorm;
+
+        qDot1 = 0.5f * (-madgwick_q2 * gx - madgwick_q3 * gy - madgwick_q4 * gz) - madgwick_beta * s1;
+        qDot2 = 0.5f * (madgwick_q1 * gx + madgwick_q3 * gz - madgwick_q4 * gy) - madgwick_beta * s2;
+        qDot3 = 0.5f * (madgwick_q1 * gy - madgwick_q2 * gz + madgwick_q4 * gx) - madgwick_beta * s3;
+        qDot4 = 0.5f * (madgwick_q1 * gz + madgwick_q2 * gy - madgwick_q3 * gx) - madgwick_beta * s4;
+    } else {
+        qDot1 = 0.5f * (-madgwick_q2 * gx - madgwick_q3 * gy - madgwick_q4 * gz);
+        qDot2 = 0.5f * (madgwick_q1 * gx + madgwick_q3 * gz - madgwick_q4 * gy);
+        qDot3 = 0.5f * (madgwick_q1 * gy - madgwick_q2 * gz + madgwick_q4 * gx);
+        qDot4 = 0.5f * (madgwick_q1 * gz + madgwick_q2 * gy - madgwick_q3 * gx);
+    }
+
+    madgwick_q1 += qDot1 * dt;
+    madgwick_q2 += qDot2 * dt;
+    madgwick_q3 += qDot3 * dt;
+    madgwick_q4 += qDot4 * dt;
+
+    recipNorm = invSqrt(madgwick_q1 * madgwick_q1 + madgwick_q2 * madgwick_q2 + madgwick_q3 * madgwick_q3 + madgwick_q4 * madgwick_q4);
+    madgwick_q1 *= recipNorm;
+    madgwick_q2 *= recipNorm;
+    madgwick_q3 *= recipNorm;
+    madgwick_q4 *= recipNorm;
+}
 
 /*******************************************************************************************************************/
 /*[S] 零飘校准 [S]--------------------------------------------------------------------------------------------------*/
@@ -188,36 +341,6 @@ int8_t IMU963RA_Calibration_Check(void)
 /*******************************************************************************************************************/
 
 //-------------------------------------------------------------------------------------------------------------------
-// 函数简介     四元数转欧拉角
-// 使用示例     QuaternionToEuler();                                              // 四元数转欧拉角
-// 备注信息     将MahonyAHRS的四元数结果转换为欧拉角
-//-------------------------------------------------------------------------------------------------------------------
-void QuaternionToEuler(void)
-{
-    float q0q0 = q0 * q0;
-    float q0q1 = q0 * q1;
-    float q0q2 = q0 * q2;
-    float q0q3 = q0 * q3;
-    float q1q1 = q1 * q1;
-    float q1q2 = q1 * q2;
-    float q1q3 = q1 * q3;
-    float q2q2 = q2 * q2;
-    float q2q3 = q2 * q3;
-    float q3q3 = q3 * q3;
-    
-    #if ENABLE_FULL_EULER
-    // 计算Roll（横滚角）
-    Roll_Result = atan2f(2.0f * (q0q1 + q2q3), q0q0 - q1q1 - q2q2 + q3q3) * 180.0f / M_PI;
-    
-    // 计算Pitch（俯仰角）
-    Pitch_Result = asinf(-2.0f * (q1q3 - q0q2)) * 180.0f / M_PI;
-    #endif
-    
-    // 计算Yaw（偏航角）
-    Yaw_Result = atan2f(2.0f * (q1q2 + q0q3), q0q0 + q1q1 - q2q2 - q3q3) * 180.0f / M_PI;
-}
-
-//-------------------------------------------------------------------------------------------------------------------
 // 函数简介     IMU963RA 姿态解算
 // 使用示例     IMU963RA_Analysis_Update();                                              // 执行姿态解算
 // 备注信息     定时调用该函数，更新姿态解算结果
@@ -227,55 +350,47 @@ void IMU963RA_Analysis_Update(void)
     // 只有在校准完成后才执行姿态解算
     if (calib_state != CALIB_STATE_DONE)
     {
-        return;  // 未校准完成，不执行解算
+        return;
     }
     
-    // 加速度计：应用坐标系配置，不乘 scale（Mahony AHRS 内部会归一化）
-    float ax = imu963ra_acc_x * IMU_ACC_X_SIGN;
-    float ay = imu963ra_acc_y * IMU_ACC_Y_SIGN;
-    float az = imu963ra_acc_z * IMU_ACC_Z_SIGN;
+    float dt = Get_dt();
 
-    // 陀螺仪：应用零飘校准和坐标系配置，转换为 rad/s
-    float gx = (imu963ra_gyro_x - gyro_off_x) * IMU_GYRO_X_SIGN * imu_gyro_scale;
-    float gy = (imu963ra_gyro_y - gyro_off_y) * IMU_GYRO_Y_SIGN * imu_gyro_scale;
-    float gz = (imu963ra_gyro_z - gyro_off_z) * IMU_GYRO_Z_SIGN * imu_gyro_scale;
-    
-    // 磁力计：应用坐标系配置，不乘 scale（Mahony AHRS 内部会归一化）
-    // 注意：磁力计不做零飘校准！
+    Axis3f acc, gyro, mag;
+    acc.x = imu963ra_acc_x * IMU_ACC_X_SIGN;
+    acc.y = imu963ra_acc_y * IMU_ACC_Y_SIGN;
+    acc.z = imu963ra_acc_z * IMU_ACC_Z_SIGN;
+
+    gyro.x = (imu963ra_gyro_x - gyro_off_x) * IMU_GYRO_X_SIGN * imu_gyro_scale;
+    gyro.y = (imu963ra_gyro_y - gyro_off_y) * IMU_GYRO_Y_SIGN * imu_gyro_scale;
+    gyro.z = (imu963ra_gyro_z - gyro_off_z) * IMU_GYRO_Z_SIGN * imu_gyro_scale;
+
     float mx0 = imu963ra_mag_x * IMU_MAG_X_SIGN;
     float my0 = imu963ra_mag_y * IMU_MAG_Y_SIGN;
     float mz0 = imu963ra_mag_z * IMU_MAG_Z_SIGN;
-    
-    // 应用磁力计轴旋转
-    float mx, my, mz;
+
     #if IMU_MAG_AXIS_ROTATE == 0
-    mx = mx0;
-    my = my0;
-    mz = mz0;
+    mag.x = mx0;
+    mag.y = my0;
+    mag.z = mz0;
     #elif IMU_MAG_AXIS_ROTATE == 1
-    mx = my0;   // 逆时针旋转 90 度
-    my = -mx0;
-    mz = mz0;
+    mag.x = my0;
+    mag.y = -mx0;
+    mag.z = mz0;
     #elif IMU_MAG_AXIS_ROTATE == 2
-    mx = -mx0;  // 旋转 180 度
-    my = -my0;
-    mz = mz0;
+    mag.x = -mx0;
+    mag.y = -my0;
+    mag.z = mz0;
     #elif IMU_MAG_AXIS_ROTATE == 3
-    mx = -my0;  // 逆时针旋转 270 度
-    my = mx0;
-    mz = mz0;
+    mag.x = -my0;
+    mag.y = mx0;
+    mag.z = mz0;
     #endif
-    
-    // 【测试】暂时强制磁力计为0，只测试加速度计+陀螺仪
-    // mx = 0.0f;
-    // my = 0.0f;
-    // mz = 0.0f;
-    
-    // 调用Mahony AHRS算法
-    MahonyAHRSupdate(gx, gy, gz, ax, ay, az, mx, my, mz);
-    
-    // 四元数转欧拉角
-    QuaternionToEuler();
+
+    MadgwickQuaternionUpdate(acc, gyro, mag, dt);
+
+    Roll_Result = atan2f(2.0f * (madgwick_q1 * madgwick_q2 + madgwick_q3 * madgwick_q4), 1.0f - 2.0f * (madgwick_q2 * madgwick_q2 + madgwick_q3 * madgwick_q3)) * RAD2DEG;
+    Pitch_Result = asinf(2.0f * (madgwick_q1 * madgwick_q3 - madgwick_q4 * madgwick_q2)) * RAD2DEG;
+    Yaw_Result = atan2f(2.0f * (madgwick_q1 * madgwick_q4 + madgwick_q2 * madgwick_q3), 1.0f - 2.0f * (madgwick_q3 * madgwick_q3 + madgwick_q4 * madgwick_q4)) * RAD2DEG;
 }
 
 /*******************************************************************************************************************/
@@ -292,33 +407,29 @@ void IMU963RA_Get_Calibrated_Data(float *acc_x, float *acc_y, float *acc_z,
 {
     if (calib_state != CALIB_STATE_DONE)
     {
-        return;  // 未校准完成，不执行校准
+        return;
     }
 
-    // 加速度无零飘
     *acc_x = (float)imu963ra_acc_x;
     *acc_y = (float)imu963ra_acc_y;
     *acc_z = (float)imu963ra_acc_z;
     
-    // 陀螺仪赋值
     *gyro_x = (float)imu963ra_gyro_x - gyro_off_x;
     *gyro_y = (float)imu963ra_gyro_y - gyro_off_y;
     *gyro_z = (float)imu963ra_gyro_z - gyro_off_z;
     
-    // 磁力计赋值（不做零飘校准）
     *mag_x = (float)imu963ra_mag_x;
     *mag_y = (float)imu963ra_mag_y;
     *mag_z = (float)imu963ra_mag_z;
 } 
-// 简化版：直接重置四元数为初始状态
+
 void IMU963RA_Reset_Yaw(void)
 {
-    q0 = 1.0f;
-    q1 = 0.0f;
-    q2 = 0.0f;
-    q3 = 0.0f;
+    madgwick_q1 = 1.0f;
+    madgwick_q2 = 0.0f;
+    madgwick_q3 = 0.0f;
+    madgwick_q4 = 0.0f;
     
-    // 同时重置欧拉角结果
     Yaw_Result = 0.0f;
     Roll_Result = 0.0f;
     Pitch_Result = 0.0f;
