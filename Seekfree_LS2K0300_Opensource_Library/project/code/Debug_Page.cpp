@@ -436,8 +436,10 @@ int Debug_IMU963RA(void)
                 imu963ra_get_data();
                 IMU963RA_Analysis_Update();
                 IMU963RA_analysis_enable = 0;
-//                IMU963RA_Apply_Calibration(&ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
+//                IMU963RA_Get_Calibrated_Data(&ax, &ay, &az, &gx, &gy, &gz);
             }
+
+
 
 //            ips200_Printf(24 ,48 , "%.1f  ", ax);
 //            ips200_Printf(104,48 , "%.1f  ", ay);

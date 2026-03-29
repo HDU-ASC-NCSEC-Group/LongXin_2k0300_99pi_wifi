@@ -17,15 +17,17 @@ extern volatile uint8_t IMU963RA_analysis_enable;
 
 // 函数声明
 void    IMU963RA_Calibration_Start      (void);
-uint8_t IMU963RA_Calibration_Check      (void);
+int8_t  IMU963RA_Calibration_Check      (void);
 void    IMU963RA_Analysis_Update        (void);
 # if (USE_MAG == 1)
-    void    IMU963RA_Apply_Calibration      (float *acc_x, float *acc_y, float *acc_z, 
+    void    IMU963RA_Get_Calibrated_Data      (float *acc_x, float *acc_y, float *acc_z, 
                                             float *gyro_x, float *gyro_y, float *gyro_z, 
                                             float *mag_x, float *mag_y, float *mag_z);
-    
+# else
+    void    IMU963RA_Get_Calibrated_Data      (float *acc_x, float *acc_y, float *acc_z, 
+                                            float *gyro_x, float *gyro_y, float *gyro_z);    
 #endif
-# if (USE_MAG == 0)
-    void    IMU963RA_Reset_Yaw              (void);
-#endif
+
+void    IMU963RA_Reset_Yaw              (void);
+
 #endif

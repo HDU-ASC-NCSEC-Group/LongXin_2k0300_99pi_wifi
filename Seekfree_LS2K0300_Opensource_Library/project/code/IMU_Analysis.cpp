@@ -2,6 +2,8 @@
 * IMU姿态解算
 ********************************************************************************************************************/
 #include "zf_device_imu963ra.h"
+
+#include "IMU_Analysis.h"
 #include "MahonyAHRS.h"
 #include <math.h>
 #include <chrono>
@@ -191,14 +193,14 @@ void IMU963RA_Analysis_Update(void)
         return;  // 未校准完成，不执行解算
     }
     
+    float ax = imu963ra_acc_x * ACC_SCALE;
+    float ay = imu963ra_acc_y * ACC_SCALE;
+    float az = imu963ra_acc_z * ACC_SCALE;
+
     // 应用零飘校准
     float gx = (imu963ra_gyro_x - gyro_off_x) * GYRO_SCALE;
     float gy = (imu963ra_gyro_y - gyro_off_y) * GYRO_SCALE;
     float gz = (imu963ra_gyro_z - gyro_off_z) * GYRO_SCALE;
-    
-    float ax = imu963ra_acc_x * ACC_SCALE;
-    float ay = imu963ra_acc_y * ACC_SCALE;
-    float az = imu963ra_acc_z * ACC_SCALE;
     
     float mx = (imu963ra_mag_x - mag_off_x) * MAG_SCALE;
     float my = (imu963ra_mag_y - mag_off_y) * MAG_SCALE;
@@ -242,7 +244,20 @@ void IMU963RA_Get_Calibrated_Data(float *acc_x, float *acc_y, float *acc_z,
     *mag_x = (float)imu963ra_mag_x - mag_off_x;
     *mag_y = (float)imu963ra_mag_y - mag_off_y;
     *mag_z = (float)imu963ra_mag_z - mag_off_z;
-}   
+} 
+// 简化版：直接重置四元数为初始状态
+void IMU963RA_Reset_Yaw(void)
+{
+    q0 = 1.0f;
+    q1 = 0.0f;
+    q2 = 0.0f;
+    q3 = 0.0f;
+    
+    // 同时重置欧拉角结果
+    Yaw_Result = 0.0f;
+    Roll_Result = 0.0f;
+    Pitch_Result = 0.0f;
+}  
 /*******************************************************************************************************************/
 /*--------------------------------------------------------------------------------------------------[E] 工具函数 [E]*/
 /*******************************************************************************************************************/
@@ -508,41 +523,35 @@ void IMU963RA_Analysis_Update(void)
         kalman_init_flag = 1;
     }
     
-    // 尝试使用校准的系数修正原始数据
-    if(calib_state == CALIB_STATE_DONE)
-    {
-        imu963ra_gyro_x -= gyro_off_x;
-        imu963ra_gyro_y -= gyro_off_y;
-        imu963ra_gyro_z -= gyro_off_z;
-    }
-    else 
-	// 使用固定值修正原始数据
-	{
-		mpu6050_gyro_x += 0.0f;
-		mpu6050_gyro_y += 0.0f;
-		mpu6050_gyro_z -= 0.0f;
-	}
-    
+    // 应用校准与中间变量赋值
+    float ax = imu963ra_acc_x;
+    float ay = imu963ra_acc_y;
+    float az = imu963ra_acc_z;
+
+    float gx = imu963ra_gyro_x - gyro_off_x;
+    float gy = imu963ra_gyro_y - gyro_off_y;
+    float gz = imu963ra_gyro_z - gyro_off_z;
+
     // 输入死区
-    if(-4 < imu963ra_gyro_x && imu963ra_gyro_x < 4) { imu963ra_gyro_x = 0; }
-    if(-4 < imu963ra_gyro_y && imu963ra_gyro_y < 4) { imu963ra_gyro_y = 0; }
-    if(-4 < imu963ra_gyro_z && imu963ra_gyro_z < 4) { imu963ra_gyro_z = 0; }
+    if(-4 < gx && gx < 4) { gx = 0; }
+    if(-4 < gy && gy < 4) { gy = 0; }
+    if(-4 < gz && gz < 4) { gz = 0; }
     
     // 计算陀螺仪角速度（转换为 °/s）
-    float gyro_roll_rate  = (float)imu963ra_gyro_x * mpu6050_const_data2;
-    float gyro_pitch_rate = (float)imu963ra_gyro_y * mpu6050_const_data2;
+    float gyro_roll_rate  = (float)gx * mpu6050_const_data2;
+    float gyro_pitch_rate = (float)gy * mpu6050_const_data2;
     
     // 横滚角加速度计计算
-    RollAcc   = atan2f((float)imu963ra_acc_y, (float)imu963ra_acc_z) * mpu6050_const_data1;
+    RollAcc   = atan2f((float)ay, (float)az) * mpu6050_const_data1;
     // 俯仰角加速度计计算
-    PitchAcc  = -atan2f((float)imu963ra_acc_x, (float)imu963ra_acc_z) * mpu6050_const_data1;
+    PitchAcc  = -atan2f((float)ax, (float)az) * mpu6050_const_data1;
     
     float dt = Get_Real_dt();
     
 #if USE_KALMAN_FILTER
     // 卡尔曼滤波模式（Roll/Pitch轴）
     // 动态调整R_measure（根据加速度计状态）
-    kf_roll.R_measure  = Get_Dynamic_Rmeasure(imu963ra_acc_x, imu963ra_acc_y, imu963ra_acc_z);
+    kf_roll.R_measure  = Get_Dynamic_Rmeasure(ax, ay, az);
     kf_pitch.R_measure = kf_roll.R_measure;
     
     // 卡尔曼滤波计算
@@ -550,15 +559,15 @@ void IMU963RA_Analysis_Update(void)
     Pitch = Kalman_Calculate(&kf_pitch, PitchAcc, gyro_pitch_rate, dt);
 #else
     // 互补滤波模式
-    RollGyro  = Roll + (float)imu963ra_gyro_x * GYRO_SCALE_6AXIS * dt;
+    float RollGyro  = Roll + (float)gx * mpu6050_const_data2 * dt;
     Roll      = 0.005 * RollAcc + (1 - 0.005) * RollGyro;
     
-    PitchGyro = Pitch + (float)imu963ra_gyro_y * GYRO_SCALE_6AXIS * dt;
+    float PitchGyro = Pitch + (float)gy * mpu6050_const_data2 * dt;
     Pitch     = 0.005 * PitchAcc + (1 - 0.005) * PitchGyro;
 #endif
     
     // 偏航角计算：仅陀螺仪积分（无加速度计校准，会漂移）
-    Yaw       += (float)imu963ra_gyro_z * GYRO_SCALE_6AXIS * dt * 1.014f;
+    Yaw       += (float)gz * mpu6050_const_data2 * dt * 1.014f;
     
     // 一阶低通滤波
     Roll_Temp  = MPU6050_LOW_PASS_FILTER * Roll + (1 - MPU6050_LOW_PASS_FILTER) * Roll_Temp;
@@ -578,6 +587,26 @@ void IMU963RA_Analysis_Update(void)
 /*******************************************************************************************************************/
 /*[S] 工具函数 [S]--------------------------------------------------------------------------------------------------*/
 /*******************************************************************************************************************/
+
+void IMU963RA_Get_Calibrated_Data(float *acc_x, float *acc_y, float *acc_z, 
+                                        float *gyro_x, float *gyro_y, float *gyro_z)
+{
+    if (calib_state != CALIB_STATE_DONE)
+    {
+        return;  // 未校准完成，不执行校准
+    }
+
+    // 加速度无零飘
+    *acc_x = (float)imu963ra_acc_x;
+    *acc_y = (float)imu963ra_acc_y;
+    *acc_z = (float)imu963ra_acc_z;
+    
+    // 陀螺仪赋值
+    *gyro_x = (float)imu963ra_gyro_x - gyro_off_x;
+    *gyro_y = (float)imu963ra_gyro_y - gyro_off_y;
+    *gyro_z = (float)imu963ra_gyro_z - gyro_off_z;
+} 
+
 // 清零Yaw角
 void IMU963RA_Reset_Yaw(void)
 {
@@ -588,5 +617,6 @@ void IMU963RA_Reset_Yaw(void)
 /*******************************************************************************************************************/
 /*--------------------------------------------------------------------------------------------------[E] 工具函数 [E]*/
 /*******************************************************************************************************************/
+
 
 #endif
