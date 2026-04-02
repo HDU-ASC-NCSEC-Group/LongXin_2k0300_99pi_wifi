@@ -14,7 +14,7 @@
 volatile float Yaw_Result = 0.0f;    // 偏航角（Yaw）
 volatile float Roll_Result = 0.0f;   // 横滚角（Roll）
 volatile float Pitch_Result = 0.0f;  // 俯仰角（Pitch）
-// IMU963RA 分析使能标志位
+// IMU963RA 数据采集和分析使能标志位
 volatile uint8_t IMU963RA_analysis_enable = 0;
 
 // 坐标系配置：根据您的IMU安装方向调整
@@ -41,24 +41,22 @@ volatile uint8_t IMU963RA_analysis_enable = 0;
 // 3: 顺时针旋转 270 度
 #define IMU_MAG_AXIS_ROTATE  3
 
+
 // 硬编码的IMU963RA参数
 // 陀螺仪：±2000°/s, 16-bit
 static float imu_gyro_scale = (2000.0f / 32768.0f) * (M_PI / 180.0f);     // 陀螺仪scale (rad/s per LSB)
 
 
-
-
 // 零飘校准校准需要的样本数
-#define CALIB_TARGET_SAMPLES    1000  
+#define CALIB_TARGET_SAMPLES    800  
 // 枚举定义校准状态
 typedef enum {
     CALIB_STATE_SPARE   = 0,          // 未开始
     CALIB_STATE_RUNNING = 1,          // 校准中
     CALIB_STATE_DONE    = 2           // 已校准
 } CalibState_t;
-static CalibState_t calib_state = CALIB_STATE_SPARE;
-// 样本数量
-static uint16_t calib_count = 0;
+static CalibState_t calib_state = CALIB_STATE_SPARE; // 当前校准状态
+static uint16_t calib_count = 0;// 已收集样本数量
 
 
 
@@ -74,8 +72,11 @@ static uint16_t calib_count = 0;
 // 备注信息     定时器定时中断定时调用该函数，获取 IMU963RA 原始数据
 //-------------------------------------------------------------------------------------------------------------------
 // IMU963RA 原始数据变量
+// 加速度计原始值
 // imu963ra_acc_x           imu963ra_acc_y          imu963ra_acc_z
+// 陀螺仪原始值
 // imu963ra_gyro_x          imu963ra_gyro_y         imu963ra_gyro_z
+// 磁力计原始值
 // imu963ra_mag_x           imu963ra_mag_y          imu963ra_mag_z  
 void imu963ra_update_data(void)
 {
@@ -85,34 +86,56 @@ void imu963ra_update_data(void)
 }
 
 // Madgwick算法相关定义
-#define DEG2RAD (M_PI / 180.0f)
-#define RAD2DEG (180.0f / M_PI)
+#define DEG2RAD (M_PI / 180.0f) // 角度转弧度
+#define RAD2DEG (180.0f / M_PI) // 弧度转角度
 
+// 三轴数据结构体
 typedef struct {
-    float x;
-    float y;
-    float z;
+    float x; // X轴数据
+    float y; // Y轴数据
+    float z; // Z轴数据
 } Axis3f;
 
-static float madgwick_q1 = 1.0f;
-static float madgwick_q2 = 0.0f;
-static float madgwick_q3 = 0.0f;
-static float madgwick_q4 = 0.0f;
+// Madgwick算法四元数（表示姿态）
+// q = q1 + q2*i + q3*j + q4*k
+// 初始值：q1=1, q2=0, q3=0, q4=0 表示水平朝北姿态
+static float madgwick_q1 = 1.0f; // 四元数实部
+static float madgwick_q2 = 0.0f; // 四元数虚部
+static float madgwick_q3 = 0.0f; // 四元数虚部
+static float madgwick_q4 = 0.0f; // 四元数k分量
+
+// Madgwick算法增益参数（控制响应速度和稳定性）
+// 推荐值：0.08-0.12（四轮车定角度转向应用）
+// 调整建议：
+//   - 增大（如0.15-0.3）：响应更快，适合快速运动场景
+//   - 减小（如0.05-0.08）：更稳定，适合平稳场景
 static float madgwick_beta = 0.1f;
 
+// 时间戳记录（用于计算dt）
 static std::chrono::steady_clock::time_point last_time_madgwick = std::chrono::steady_clock::now();
 
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     获取时间间隔（dt）
+// 返回参数     dt：时间间隔（秒），范围[0.001s, 0.05s]
+// 备注信息     用于Madgwick算法的时间积分，限制范围避免异常值
+//-------------------------------------------------------------------------------------------------------------------
 static float Get_dt(void)
 {
     auto current_time = std::chrono::steady_clock::now();
     auto time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - last_time_madgwick).count();
     float dt = (float)time_diff / 1000.0f;
-    if (dt > 0.05f) dt = 0.05f;
-    if (dt < 0.001f) dt = 0.001f;
+    if (dt > 0.05f) dt = 0.05f; // 限制最大dt
+    if (dt < 0.001f) dt = 0.001f; // 限制最小dt
     last_time_madgwick = current_time;
     return dt;
 }
 
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     快速平方根倒数计算（牛顿迭代法）
+// 输入参数     x：输入值
+// 返回参数     1/√x：平方根倒数
+// 备注信息     比标准sqrtf()函数更快，用于向量归一化
+//-------------------------------------------------------------------------------------------------------------------
 static float invSqrt(float x)
 {
     float halfx = 0.5f * x;
@@ -125,6 +148,22 @@ static float invSqrt(float x)
     return conv.f;
 }
 
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     Madgwick AHRS算法核心函数 
+// 算法原理：
+// 1. 使用梯度下降法融合加速度计和磁力计数据
+// 2. 结合陀螺仪数据更新四元数
+// 3. 通过四元数计算欧拉角（Roll、Pitch、Yaw）
+//
+// 输入参数：
+//   acc  - 加速度计数据（m/s²，已归一化）
+//   gyro - 陀螺仪数据（rad/s）
+//   mag  - 磁力计数据（已归一化）
+//   dt   - 时间间隔（秒）
+//
+// 输出结果：
+//   更新全局四元数 madgwick_q1~madgwick_q4
+//-------------------------------------------------------------------------------------------------------------------
 static void MadgwickQuaternionUpdate(Axis3f acc, Axis3f gyro, Axis3f mag, float dt)
 {
     float recipNorm;
@@ -143,18 +182,21 @@ static void MadgwickQuaternionUpdate(Axis3f acc, Axis3f gyro, Axis3f mag, float 
     float my = mag.y;
     float mz = mag.z;
 
+    // 检查加速度计数据是否有效（避免除零）
     if (!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
         recipNorm = invSqrt(ax * ax + ay * ay + az * az);
         ax *= recipNorm;
         ay *= recipNorm;
         az *= recipNorm;
 
+        // 检查磁力计数据是否有效
         if (!((mx == 0.0f) && (my == 0.0f) && (mz == 0.0f))) {
             recipNorm = invSqrt(mx * mx + my * my + mz * mz);
             mx *= recipNorm;
             my *= recipNorm;
             mz *= recipNorm;
 
+            // 计算中间变量（优化计算效率）
             _2q1mx = 2.0f * madgwick_q1 * mx;
             _2q1my = 2.0f * madgwick_q1 * my;
             _2q1mz = 2.0f * madgwick_q1 * mz;
@@ -176,6 +218,7 @@ static void MadgwickQuaternionUpdate(Axis3f acc, Axis3f gyro, Axis3f mag, float 
             q3q4 = madgwick_q3 * madgwick_q4;
             q4q4 = madgwick_q4 * madgwick_q4;
 
+            // 计算参考磁场方向（在机体坐标系中）
             hx = mx * q1q1 - _2q1my * madgwick_q4 + _2q1mz * madgwick_q3 + mx * q2q2 + _2q2 * my * madgwick_q3 + _2q2 * mz * madgwick_q4 - mx * q3q3 - mx * q4q4;
             hy = _2q1mx * madgwick_q4 + my * q1q1 - _2q1mz * madgwick_q2 + _2q2mx * madgwick_q3 - my * q2q2 + my * q3q3 + _2q3 * mz * madgwick_q4 - my * q4q4;
             _2bx = sqrtf(hx * hx + hy * hy);
@@ -183,11 +226,13 @@ static void MadgwickQuaternionUpdate(Axis3f acc, Axis3f gyro, Axis3f mag, float 
             _4bx = 2.0f * _2bx;
             _4bz = 2.0f * _2bz;
 
+            // 梯度下降法计算四元数导数（九轴模式）
             s1 = -_2q3 * (2.0f * q2q4 - _2q1q3 - ax) + _2q2 * (2.0f * q1q2 + _2q3q4 - ay) - _2bz * madgwick_q3 * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (-_2bx * madgwick_q4 + _2bz * madgwick_q2) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + _2bx * madgwick_q3 * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
             s2 = _2q4 * (2.0f * q2q4 - _2q1q3 - ax) + _2q1 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * madgwick_q2 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az) + _2bz * madgwick_q4 * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (_2bx * madgwick_q3 + _2bz * madgwick_q1) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + (_2bx * madgwick_q4 - _4bz * madgwick_q2) * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
             s3 = -_2q1 * (2.0f * q2q4 - _2q1q3 - ax) + _2q4 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * madgwick_q3 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az) + (-_4bx * madgwick_q3 - _2bz * madgwick_q1) * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (_2bx * madgwick_q2 + _2bz * madgwick_q4) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + (_2bx * madgwick_q1 - _4bz * madgwick_q3) * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
             s4 = _2q2 * (2.0f * q2q4 - _2q1q3 - ax) + _2q3 * (2.0f * q1q2 + _2q3q4 - ay) + (-_4bx * madgwick_q4 + _2bz * madgwick_q2) * (_2bx * (0.5f - q3q3 - q4q4) + _2bz * (q2q4 - q1q3) - mx) + (-_2bx * madgwick_q1 + _2bz * madgwick_q3) * (_2bx * (q2q3 - q1q4) + _2bz * (q1q2 + q3q4) - my) + _2bx * madgwick_q2 * (_2bx * (q1q3 + q2q4) + _2bz * (0.5f - q2q2 - q3q3) - mz);
         } else {
+            // 六轴模式（无磁力计数据）
             _2q1 = 2.0f * madgwick_q1;
             _2q2 = 2.0f * madgwick_q2;
             _2q3 = 2.0f * madgwick_q3;
@@ -204,34 +249,40 @@ static void MadgwickQuaternionUpdate(Axis3f acc, Axis3f gyro, Axis3f mag, float 
             q3q4 = madgwick_q3 * madgwick_q4;
             q4q4 = madgwick_q4 * madgwick_q4;
 
+            // 梯度下降法计算四元数导数（六轴模式）
             s1 = -_2q3 * (2.0f * q2q4 - _2q1q3 - ax) + _2q2 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * madgwick_q1 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az);
             s2 = _2q4 * (2.0f * q2q4 - _2q1q3 - ax) + _2q1 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * madgwick_q2 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az);
             s3 = -_2q1 * (2.0f * q2q4 - _2q1q3 - ax) + _2q4 * (2.0f * q1q2 + _2q3q4 - ay) - 4.0f * madgwick_q3 * (1.0f - 2.0f * q2q2 - 2.0f * q3q3 - az);
             s4 = _2q2 * (2.0f * q2q4 - _2q1q3 - ax) + _2q3 * (2.0f * q1q2 + _2q3q4 - ay);
         }
 
+        // 归一化梯度向量
         recipNorm = invSqrt(s1 * s1 + s2 * s2 + s3 * s3 + s4 * s4);
         s1 *= recipNorm;
         s2 *= recipNorm;
         s3 *= recipNorm;
         s4 *= recipNorm;
 
+        // 计算四元数导数（结合陀螺仪和梯度下降）
         qDot1 = 0.5f * (-madgwick_q2 * gx - madgwick_q3 * gy - madgwick_q4 * gz) - madgwick_beta * s1;
         qDot2 = 0.5f * (madgwick_q1 * gx + madgwick_q3 * gz - madgwick_q4 * gy) - madgwick_beta * s2;
         qDot3 = 0.5f * (madgwick_q1 * gy - madgwick_q2 * gz + madgwick_q4 * gx) - madgwick_beta * s3;
         qDot4 = 0.5f * (madgwick_q1 * gz + madgwick_q2 * gy - madgwick_q3 * gx) - madgwick_beta * s4;
     } else {
+        // 加速度计数据无效，仅使用陀螺仪
         qDot1 = 0.5f * (-madgwick_q2 * gx - madgwick_q3 * gy - madgwick_q4 * gz);
         qDot2 = 0.5f * (madgwick_q1 * gx + madgwick_q3 * gz - madgwick_q4 * gy);
         qDot3 = 0.5f * (madgwick_q1 * gy - madgwick_q2 * gz + madgwick_q4 * gx);
         qDot4 = 0.5f * (madgwick_q1 * gz + madgwick_q2 * gy - madgwick_q3 * gx);
     }
 
+    // 积分更新四元数
     madgwick_q1 += qDot1 * dt;
     madgwick_q2 += qDot2 * dt;
     madgwick_q3 += qDot3 * dt;
     madgwick_q4 += qDot4 * dt;
 
+    // 归一化四元数（保持单位四元数）
     recipNorm = invSqrt(madgwick_q1 * madgwick_q1 + madgwick_q2 * madgwick_q2 + madgwick_q3 * madgwick_q3 + madgwick_q4 * madgwick_q4);
     madgwick_q1 *= recipNorm;
     madgwick_q2 *= recipNorm;
@@ -243,8 +294,9 @@ static void MadgwickQuaternionUpdate(Axis3f acc, Axis3f gyro, Axis3f mag, float 
 /*[S] 零飘校准 [S]--------------------------------------------------------------------------------------------------*/
 /*******************************************************************************************************************/
 
-static int32_t sum_gx = 0, sum_gy = 0, sum_gz = 0;
-static float gyro_off_x = 0, gyro_off_y = 0, gyro_off_z = 0;
+// 陀螺仪零飘校准相关变量
+static int32_t sum_gx = 0, sum_gy = 0, sum_gz = 0;// 陀螺仪数据累加和
+static float gyro_off_x = 0, gyro_off_y = 0, gyro_off_z = 0;// 陀螺仪零点偏移量
 
 //-------------------------------------------------------------------------------------------------------------------
 // 函数简介     IMU963RA 校准初始化
@@ -253,7 +305,7 @@ static float gyro_off_x = 0, gyro_off_y = 0, gyro_off_z = 0;
 //-------------------------------------------------------------------------------------------------------------------
 void IMU963RA_Calibration_Start(void)
 {
-    calib_state = CALIB_STATE_RUNNING;
+    calib_state = CALIB_STATE_RUNNING;  // 设置状态为校准中
     calib_count = 0;
     sum_gx = 0;
     sum_gy = 0;
@@ -273,12 +325,12 @@ int8_t IMU963RA_Calibration_Check(void)
 {
     if(calib_state == CALIB_STATE_DONE)
     {
-        return 2;
+        return 2; // 已校准完成
     }
 
     if(calib_state == CALIB_STATE_SPARE)
     {
-        return 0;
+        return 0; // 未开始校准
     }
     
     // 检查是否允许收集数据
@@ -294,6 +346,7 @@ int8_t IMU963RA_Calibration_Check(void)
 
         IMU963RA_analysis_enable = 0;
         
+        // 检查是否收集够样本数
         if(calib_count >= CALIB_TARGET_SAMPLES)
         {
             gyro_off_x = (float)sum_gx / CALIB_TARGET_SAMPLES;
@@ -304,7 +357,7 @@ int8_t IMU963RA_Calibration_Check(void)
         }
     }
     
-    return 1;
+    return 1; // 校准中
 }
 
 /*******************************************************************************************************************/
@@ -326,24 +379,30 @@ void IMU963RA_Analysis_Update(void)
     // 只有在校准完成后才执行姿态解算
     if (calib_state != CALIB_STATE_DONE)
     {
-        return;
+        return; // 未校准完成，不执行解算
     }
     
-    float dt = Get_dt();
+    float dt = Get_dt(); // 获取时间间隔
 
+    // 准备传感器数据
     Axis3f acc, gyro, mag;
+
+    // 加速度计数据（应用坐标系配置）
     acc.x = imu963ra_acc_x * IMU_ACC_X_SIGN;
     acc.y = imu963ra_acc_y * IMU_ACC_Y_SIGN;
     acc.z = imu963ra_acc_z * IMU_ACC_Z_SIGN;
 
+    // 陀螺仪数据（应用零飘校准、坐标系配置、scale转换）
     gyro.x = (imu963ra_gyro_x - gyro_off_x) * IMU_GYRO_X_SIGN * imu_gyro_scale;
     gyro.y = (imu963ra_gyro_y - gyro_off_y) * IMU_GYRO_Y_SIGN * imu_gyro_scale;
     gyro.z = (imu963ra_gyro_z - gyro_off_z) * IMU_GYRO_Z_SIGN * imu_gyro_scale;
 
+    // 磁力计数据（应用坐标系配置）
     float mx0 = imu963ra_mag_x * IMU_MAG_X_SIGN;
     float my0 = imu963ra_mag_y * IMU_MAG_Y_SIGN;
     float mz0 = imu963ra_mag_z * IMU_MAG_Z_SIGN;
 
+    // 磁力计轴旋转（修正坐标系差异）
     #if IMU_MAG_AXIS_ROTATE == 0
     mag.x = mx0;
     mag.y = my0;
@@ -362,10 +421,15 @@ void IMU963RA_Analysis_Update(void)
     mag.z = mz0;
     #endif
 
+    // 调用Madgwick算法更新姿态
     MadgwickQuaternionUpdate(acc, gyro, mag, dt);
 
+    // 四元数转欧拉角
+    // Roll：绕X轴旋转，范围[-90°, 90°]
     Roll_Result = atan2f(2.0f * (madgwick_q1 * madgwick_q2 + madgwick_q3 * madgwick_q4), 1.0f - 2.0f * (madgwick_q2 * madgwick_q2 + madgwick_q3 * madgwick_q3)) * RAD2DEG;
-    Pitch_Result = asinf(2.0f * (madgwick_q1 * madgwick_q3 - madgwick_q4 * madgwick_q2)) * RAD2DEG;
+    // Pitch：绕Y轴旋转，范围[-90°, 90°]
+    Pitch_Result = asinf(2.0f * (madgwick_q1 * madgwick_q3 - madgwick_q4 * madgwick_q2)) * RAD2DEG;  
+    // Yaw：绕Z轴旋转，范围[-180°, 180°]
     Yaw_Result = atan2f(2.0f * (madgwick_q1 * madgwick_q4 + madgwick_q2 * madgwick_q3), 1.0f - 2.0f * (madgwick_q3 * madgwick_q3 + madgwick_q4 * madgwick_q4)) * RAD2DEG;
 }
 
@@ -377,6 +441,12 @@ void IMU963RA_Analysis_Update(void)
 /*******************************************************************************************************************/
 /*[S] 工具函数 [S]--------------------------------------------------------------------------------------------------*/
 /*******************************************************************************************************************/
+
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     获取校准后的IMU数据
+// 输入参数     指向输出变量的指针（加速度计、陀螺仪、磁力计各三轴）
+// 备注信息     用于调试或数据监控，返回经过校准的原始数据
+//-------------------------------------------------------------------------------------------------------------------
 void IMU963RA_Get_Calibrated_Data(float *acc_x, float *acc_y, float *acc_z, 
                                         float *gyro_x, float *gyro_y, float *gyro_z, 
                                         float *mag_x, float *mag_y, float *mag_z)
@@ -399,13 +469,19 @@ void IMU963RA_Get_Calibrated_Data(float *acc_x, float *acc_y, float *acc_z,
     *mag_z = (float)imu963ra_mag_z;
 } 
 
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     重置Yaw角（归零）
+// 备注信息     将当前方向设为0°，用于定角度转向的起点
+//-------------------------------------------------------------------------------------------------------------------
 void IMU963RA_Reset_Yaw(void)
 {
+     // 重置四元数为初始姿态（水平朝北）
     madgwick_q1 = 1.0f;
     madgwick_q2 = 0.0f;
     madgwick_q3 = 0.0f;
     madgwick_q4 = 0.0f;
     
+    // 重置姿态角输出变量
     Yaw_Result = 0.0f;
     Roll_Result = 0.0f;
     Pitch_Result = 0.0f;
@@ -430,7 +506,9 @@ void IMU963RA_Reset_Yaw(void)
 // 备注信息     定时器定时中断定时调用该函数，获取 IMU963RA 原始数据
 //-------------------------------------------------------------------------------------------------------------------
 // IMU963RA 原始数据变量
+// 加速度计原始值
 // imu963ra_acc_x           imu963ra_acc_y          imu963ra_acc_z
+// 陀螺仪原始值
 // imu963ra_gyro_x          imu963ra_gyro_y         imu963ra_gyro_z
 void imu963ra_update_data(void)
 {
@@ -441,9 +519,14 @@ void imu963ra_update_data(void)
 /*******************************************************************************************************************/
 /*[S] 零飘校准 [S]--------------------------------------------------------------------------------------------------*/
 /*******************************************************************************************************************/
-// 上次时间戳
+// 上次时间戳（用于计算dt）
 static std::chrono::steady_clock::time_point last_time = std::chrono::steady_clock::now();
 
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     获取实际采样时间间隔
+// 返回参数     dt：时间间隔（秒），范围[0.001s, 0.05s]
+// 备注信息     用于姿态解算的时间积分，限制范围避免异常值
+//-------------------------------------------------------------------------------------------------------------------
 // 获取实际采样时间间隔
 static float Get_Real_dt(void)
 {
@@ -452,38 +535,45 @@ static float Get_Real_dt(void)
     
     // 限制dt范围
     float dt = (float)time_diff / 1000.0f;
-    if (dt > 0.05f) dt = 0.05f;
-    if (dt < 0.001f) dt = 0.001f;
+    if (dt > 0.05f) dt = 0.05f; // 限制最大dt
+    if (dt < 0.001f) dt = 0.001f; // 限制最小dt
     
     last_time = current_time;
     return dt;
 }
 
-// 零飘校准相关
-static int32_t sum_gx = 0, sum_gy = 0, sum_gz = 0;
-static float gyro_off_x = 0, gyro_off_y = 0, gyro_off_z = 0;
+// 陀螺仪零飘校准相关变量
+static int32_t sum_gx = 0, sum_gy = 0, sum_gz = 0; // 陀螺仪数据累加和
+static float gyro_off_x = 0, gyro_off_y = 0, gyro_off_z = 0; // 陀螺仪零点偏移量
 
-// 开始校准
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     开始校准
+// 备注信息     初始化校准状态，准备收集陀螺仪零飘数据
+//-------------------------------------------------------------------------------------------------------------------
 void IMU963RA_Calibration_Start(void)
 {
-    calib_state = CALIB_STATE_RUNNING;
+    calib_state = CALIB_STATE_RUNNING; // 设置状态为校准中
     calib_count = 0;
     sum_gx = 0;
     sum_gy = 0;
     sum_gz = 0;
 }
 
-// 校准状态检查
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     校准状态检查
+// 返回参数     校准状态：0-未校准，1-校准中，2-已校准
+// 备注信息     需要配合IMU963RA_analysis_enable标志位使用
+//-------------------------------------------------------------------------------------------------------------------
 int8_t IMU963RA_Calibration_Check(void)
 {
     if(calib_state == CALIB_STATE_DONE)
     {
-        return 2;
+        return 2; // 已校准完成
     }
 
     if(calib_state == CALIB_STATE_SPARE)
     {
-        return 0;
+        return 0; // 未开始校准
     }
     
     // 检查是否允许收集数据
@@ -508,7 +598,7 @@ int8_t IMU963RA_Calibration_Check(void)
         }
     }
     
-    return 1;
+    return 1; // 校准中
 }
 /*******************************************************************************************************************/
 /*--------------------------------------------------------------------------------------------------[E] 零飘校准 [E]*/
@@ -754,6 +844,10 @@ void IMU963RA_Reset_Yaw(void)
 /*******************************************************************************************************************/
 /*--------------------------------------------------------------------------------------------------[E] 工具函数 [E]*/
 /*******************************************************************************************************************/
+
+
+
+
 
 
 #endif
