@@ -66,3 +66,9 @@ void servo_control(void)
     再写一个机械臂复位代码，形成一套动作链
     */
 }
+
+// 机械臂初始化
+void servo_init(void)
+{
+    
+}

@@ -36,6 +36,8 @@
 
 extern struct pwm_info servo_pwm_info;
 
+#define RAD_TO_DEG (180.0f / 3.14159265358979f)
+
 timer_fd *pit_timer;
 
 float roll, pitch, yaw;
@@ -43,7 +45,11 @@ float roll, pitch, yaw;
 // 里面放入中断代码
 void pit_callback()
 {
+    imu963ra_get_acc();
+    imu963ra_get_gyro();
+    imu963ra_get_mag();
 
+    quaternion_update();
 }
 
 void sigint_handler(int signum) 
@@ -67,13 +73,17 @@ int main(int, char**)
     // 初始化屏幕
     ips200_init("/dev/fb0");
 
+    // 四元数初始化
+    quaternion_init(0.5f, 0.05f);  // 设置适当的增益
+
+
     // 初始化UVC摄像头
-    if (uvc_camera_init("/dev/video0") < 0) {
-        return -1;
-    }
+    // if (uvc_camera_init("/dev/video0") < 0) {
+    //     return -1;
+    // }
 
     // 获取PWM设备信息
-    pwm_get_dev_info(SERVO_MOTOR1_PWM, &servo_pwm_info);
+    // pwm_get_dev_info(SERVO_MOTOR1_PWM, &servo_pwm_info);
 
     // 创建一个定时器1ms周期，回调函数为pit_callback
     pit_timer = new timer_fd(10, pit_callback);
@@ -81,8 +91,11 @@ int main(int, char**)
 
     // 主循环
     while (1) {
-        object_tracking();  // 红色物块跟踪显示
-        coordinate_transformation();  // 坐标转换显示
+        // object_tracking();  // 红色物块跟踪显示
+        // coordinate_transformation();  // 坐标转换显示
+        quaternion_get_euler(&roll, &pitch, &yaw);
+
+        printf("g_z=%d,a_z=%d,m_z=%d,yaw=%f\r\n", imu963ra_gyro_z, imu963ra_acc_z, imu963ra_mag_z, yaw * RAD_TO_DEG);
     }
 
     return 0;

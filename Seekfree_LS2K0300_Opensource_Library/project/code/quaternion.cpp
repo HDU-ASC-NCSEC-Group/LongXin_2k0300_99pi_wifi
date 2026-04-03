@@ -126,19 +126,19 @@ void quaternion_init(float kp, float ki) {
 // 更新四元数（在中断中调用，使用全局IMU数据）
 void quaternion_update(void) {
     static uint32_t last_time = 0;
-    float dt = 0.1f;   // 固定10ms周期
+    float dt = 0.01f;   // 固定10ms周期
 
     // 获取原始数据并转换单位
     // 对陀螺仪进行粗糙滤波
-    float gx = (float)(imu963ra_gyro_x / 100 * 100) * GYRO_SCALE;
-    float gy = (float)(imu963ra_gyro_y / 100 * 100) * GYRO_SCALE;
-    float gz = (float)(imu963ra_gyro_z / 100 * 100) * GYRO_SCALE;
-    float ax = (float)(imu963ra_acc_x / 100 * 100) * ACC_SCALE;
-    float ay = (float)(imu963ra_acc_y / 100 * 100) * ACC_SCALE;
-    float az = (float)(imu963ra_acc_z / 100 * 100) * ACC_SCALE;
-    float mx = (float)(imu963ra_mag_x / 100 * 100);   // 磁力计直接使用原始值，归一化后不影响方向
-    float my = (float)(imu963ra_mag_y / 100 * 100);
-    float mz = (float)(imu963ra_mag_z / 100 * 100);
+    float gx = (float)(imu963ra_gyro_x / 10 * 10) * GYRO_SCALE;
+    float gy = (float)(imu963ra_gyro_y / 10 * 10) * GYRO_SCALE;
+    float gz = (float)(imu963ra_gyro_z / 10 * 10) * GYRO_SCALE;
+    float ax = (float)(imu963ra_acc_x / 10000 * 10000) * ACC_SCALE;
+    float ay = (float)(imu963ra_acc_y / 10000 * 10000) * ACC_SCALE;
+    float az = (float)(imu963ra_acc_z / 10000 * 10000) * ACC_SCALE;
+    float mx = (float)(imu963ra_mag_x / 10000 * 10000);   // 磁力计直接使用原始值，归一化后不影响方向
+    float my = (float)(imu963ra_mag_y / 10000 * 10000);
+    float mz = (float)(imu963ra_mag_z / 10000 * 10000);
 
     // 执行Mahony更新
     MahonyAHRSupdate(gx, gy, gz, ax, ay, az, mx, my, mz, dt);

@@ -17,9 +17,26 @@
 
 #define SERVO_MOTOR_DUTY(x)         ((float)PWM_DUTY_MAX/(1000.0/(float)SERVO_MOTOR_FREQ)*(0.5+(float)(x)/90.0))
 
-//坐标外部声明
+// 坐标外部声明
 extern int16_t coordinate_x;
 extern int16_t coordinate_y;
+
+// 状态机->机械臂状态
+typedef enum
+{
+    SERVO_IDLE,         // 空闲状态
+    SERVO_TRACKING,     // 追踪状态
+    SERVO_GRASPING,     // 抓取状态
+    SERVO_RELEASING     // 复位状态
+} ArmState;
+
+typedef struct
+{
+    int8_t arm_state;   // 状态机，0-空闲，1-追踪，2-抓取，3-复位
+    int8_t start_flag;  // 启动标志，0-未启动，1-已启动
+    int8_t stop_flag;   // 停止标志，0-未停止，1-已停止
+
+} ArmControl;
 
 //函数声明取
 void servo_test(void);
