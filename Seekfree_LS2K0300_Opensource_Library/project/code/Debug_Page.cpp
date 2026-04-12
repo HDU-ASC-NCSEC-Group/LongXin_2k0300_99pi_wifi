@@ -480,116 +480,114 @@ int Debug_IMU963RA(void)
     }
     ips200_show_string(40 ,32 , "[GYRO]DONE");
 
-    int16_t ax = 0,ay = 0,az = 0;
+    // 仅仅作为显示变量，不用于计算
+    float ax = 0,ay = 0,az = 0;
     float gx = 0,gy = 0,gz = 0;
     int16_t mx = 0,my = 0,mz = 0;
 
     // 区分选择校准陀螺仪还是磁力计
     // 0：校准陀螺仪
     // 1：校准磁力计
-    uint8_t Calib_flag = 0;
+    uint8_t Debug_IMU963RA_flag = 0;
 
     while(1)
     {
         /* 按键处理*/      
-        #if   IMU_ANALYSIS_MODE == 9 // 九轴 
-            if (Key_Check(KEY_NAME_UP,KEY_SINGLE)) 
-            {
-                Calib_flag = 0;
-                ips200_show_string(40 ,32 , "#GYRO#");
-                ips200_show_string(136,32 , "[MAGN]");
-            }
-            else if (Key_Check(KEY_NAME_DOWN,KEY_SINGLE)) 
-            {
-                Calib_flag = 1;
-                ips200_show_string(40 ,32 , "[GYRO]");
-                ips200_show_string(136,32 , "#MAGN#");
+        if (Key_Check(KEY_NAME_UP,KEY_SINGLE)) 
+        {
+            Debug_IMU963RA_flag = 0;
+            ips200_show_string(40 ,32 , "#GYRO#");
+            ips200_show_string(136,32 , "[MAGN]");
+        }
+        else if (Key_Check(KEY_NAME_DOWN,KEY_SINGLE)) 
+        {
+            Debug_IMU963RA_flag = 1;
+            ips200_show_string(40 ,32 , "[GYRO]");
+            ips200_show_string(136,32 , "#MAGN#");
+        }
+        else if (Key_Check(KEY_NAME_CONFIRM,KEY_SINGLE))
+        {
+            // 开启校准
+            if (Debug_IMU963RA_flag == 1)
+            {                   
+                IMU_Mag_Calib_Start(&mag_cal);
+                ips200_show_string(136 ,32 , "[MAGN]ING~");
+                // 半阻塞式零飘校准
+                while(1)
+                {
+                    if (IMU_Mag_Calib_Check(&mag_cal) == MAG_CALIB_STATE_DONE)  // 零飘校准完成
+                    {
+                        break;  // 结束零飘校准
+                    }                                   
+                    if (Key_Check(KEY_NAME_BACK,KEY_SINGLE)) // 强制零飘校准退出
+                    {
+                        break;  // 中止零飘校准
+                    }        
+                }
+                IMU_Reset_Data();
+                Debug_IMU963RA_UI();
+                ips200_show_string(136,32 , "#MAGN#DONE");      
             }
             else 
-        #endif
-
-            if (Key_Check(KEY_NAME_CONFIRM,KEY_SINGLE))
             {
-                // 开启校准
-                if (Calib_flag == 1)
-                {                   
-                    IMU_Mag_Calib_Start(&mag_cal);
-                    ips200_show_string(136 ,32 , "[MAGN]ING~");
-                    // 半阻塞式零飘校准
-                    while(1)
-                    {
-                        if (IMU_Mag_Calib_Check(&mag_cal) == MAG_CALIB_STATE_DONE)  // 零飘校准完成
-                        {
-                            break;  // 结束零飘校准
-                        }                                   
-                        if (Key_Check(KEY_NAME_BACK,KEY_SINGLE)) // 强制零飘校准退出
-                        {
-                            break;  // 中止零飘校准
-                        }        
-                    }
-                    IMU_Reset_Data();
-                    Debug_IMU963RA_UI();
-                    ips200_show_string(136,32 , "#MAGN#DONE");      
-                }
-                else 
+                IMU_Gyro_Calib_Start(&gyro_cal);
+                ips200_show_string(40 ,32 , "[GYRO]ING~");
+                // 半阻塞式零飘校准
+                while(1)
                 {
-                    IMU_Gyro_Calib_Start(&gyro_cal);
-                    ips200_show_string(40 ,32 , "[GYRO]ING~");
-                    // 半阻塞式零飘校准
-                    while(1)
+                    if (IMU_Gyro_Calib_Check(&gyro_cal) == GYRO_CALIB_STATE_DONE)  // 零飘校准完成
                     {
-                        if (IMU_Gyro_Calib_Check(&gyro_cal) == GYRO_CALIB_STATE_DONE)  // 零飘校准完成
-                        {
-                            break;  // 结束零飘校准
-                        }                                                             
-                        if (Key_Check(KEY_NAME_BACK,KEY_SINGLE)) // 强制零飘校准退出
-                        {
-                            break;  // 中止零飘校准
-                        }        
-                    }
-                    IMU_Reset_Data();
-                    Debug_IMU963RA_UI();
-                    ips200_show_string(40 ,32 , "#GYRO#DONE");
+                        break;  // 结束零飘校准
+                    }                                                             
+                    if (Key_Check(KEY_NAME_BACK,KEY_SINGLE)) // 强制零飘校准退出
+                    {
+                        break;  // 中止零飘校准
+                    }        
                 }
+                IMU_Reset_Data();
+                Debug_IMU963RA_UI();
+                ips200_show_string(40 ,32 , "#GYRO#DONE");
             }
-            else if (Key_Check(KEY_NAME_BACK,KEY_SINGLE))
-            {
-                // 返回上一级界面
-                return 0;   
-            }
+        }
+        else if (Key_Check(KEY_NAME_BACK,KEY_SINGLE))
+        {
+            // 返回上一级界面
+            return 0;   
+        }
 
-            if (IMU_D_and_A_Enable)
-            {
-                IMU_Update_Data();
 
-                IMU_Update_Analysis();
-                IMU_D_and_A_Enable = 0;
-            }
+        /* IMU数据更新*/
+        if (IMU_D_and_A_Enable)
+        {
+            IMU_Update_Data();
 
-            if (Time_200ms_Flag)
-            {   
-                    IMU_Acc_Apply(&ax, &ay, &az);            
-                    IMU_Gyro_Apply(&gyro_cal, &gx, &gy, &gz);
-                    IMU_Mag_Apply(&mag_cal, &mx, &my, &mz);
-                
-                    ips200_Printf(24 ,80 , "%d ", ax);
-                    ips200_Printf(104,80 , "%d ", ay);
-                    ips200_Printf(184,80 , "%d ", az);
-                    ips200_Printf(24 ,96 , "%.1f ", gx);
-                    ips200_Printf(104,96 , "%.1f ", gy);
-                    ips200_Printf(184,96 , "%.1f ", gz);
-                    ips200_Printf(24 ,112, "%.1f ", mx);
-                    ips200_Printf(104,112, "%.1f ", my);
-                    ips200_Printf(184,112, "%.1f ", mz);
-                #endif
+            IMU_Update_Analysis();
+            IMU_D_and_A_Enable = 0;
+        }
 
-                Time_200ms_Flag = 0;
-            }
 
-            ips200_Printf(24 ,144, "%.1f ", Roll_Result);
-            ips200_Printf(104,144, "%.1f ", Yaw_Result);
-            ips200_Printf(184,144, "%.1f ", Pitch_Result);
-        
+        /* 显示更新*/
+        if (Time_200ms_Flag)
+        {   
+                IMU_Acc_Apply(&ax, &ay, &az);            
+                IMU_Gyro_Apply(&gyro_cal, &gx, &gy, &gz);
+                IMU_Mag_Apply(&mag_cal, &mx, &my, &mz);
+            
+                ips200_Printf(24 ,80 , "%d ", ax);
+                ips200_Printf(104,80 , "%d ", ay);
+                ips200_Printf(184,80 , "%d ", az);
+                ips200_Printf(24 ,96 , "%.1f ", gx);
+                ips200_Printf(104,96 , "%.1f ", gy);
+                ips200_Printf(184,96 , "%.1f ", gz);
+                ips200_Printf(24 ,112, "%.1f ", mx);
+                ips200_Printf(104,112, "%.1f ", my);
+                ips200_Printf(184,112, "%.1f ", mz);
+
+            Time_200ms_Flag = 0;
+        }
+        ips200_Printf(24 ,144, "%.1f ", Roll_Result);
+        ips200_Printf(104,144, "%.1f ", Yaw_Result);
+        ips200_Printf(184,144, "%.1f ", Pitch_Result);
     }
 }
 /*******************************************************************************************************************/
