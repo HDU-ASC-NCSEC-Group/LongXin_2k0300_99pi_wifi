@@ -11,7 +11,7 @@
 #include "Key.h"
 #include "Motor.h"
 #include "param_config.h"
-
+#include "UART2.h"
 
 
 /*******************************************************************************************************************/
@@ -30,7 +30,8 @@ void Debug_Page_Menu_UI(uint8_t Page)
 			ips200_show_string(10 ,32 , "BUZ");
             ips200_show_string(10 ,48 , "MOTOR");
             ips200_show_string(10 ,64 , "IMU963RA");
-		
+            ips200_show_string(10 ,80 , "UART2");
+
 			break;
 	}
 }
@@ -52,7 +53,8 @@ void Debug_MOTOR_UI(void)
     ips200_show_string(10 , 48 , "PWM2:###       ENC2:###");
     ips200_show_string(10 , 64 , "PWM3:###       ENC3:###");
     ips200_show_string(10 , 80 , "PWM4:###       ENC4:###");
-
+    // 占位符
+    // 占位符
     ips200_show_string(10 , 112, "SUM1:###       SUM2:###");
 }
 
@@ -63,11 +65,13 @@ void Debug_IMU963RA_UI(void)
     ips200_show_string(0  ,16 , "==============================");
     ips200_show_string(0  ,32 , "Cali:[GYRO]IDLE  [MAGN]IDLE");
     ips200_show_string(0  ,48 , "Mode:####");
-
+    // 占位符
+    // 占位符
     ips200_show_string(0  ,80 , "ax:#      ay:#      az:#      ");
     ips200_show_string(0  ,96 , "gx:#      gy:#      gz:#      ");
     ips200_show_string(0  ,112, "mx:#      my:#      mz:#      ");
-    
+    // 占位符
+    // 占位符
     ips200_show_string(0  ,144, "Ro:#      Ya:#      Pi:#      ");
 
     #if   IMU_ANALYSIS_MODE == 3
@@ -77,6 +81,17 @@ void Debug_IMU963RA_UI(void)
     #elif IMU_ANALYSIS_MODE == 9
         ips200_show_string(40 ,48 , "9Axis");
     #endif
+}
+
+// [三级界面]UART2调试界面
+void Debug_UART2_UI(void)
+{
+    ips200_show_string(8  ,0  , "[DEBUG]-UART2");
+    ips200_show_string(0  ,16 , "==============================");
+    ips200_show_string(0  ,32 , "TX:###");
+    // 占位符
+    ips200_show_string(0  ,64 , "RX:###");
+    // 占位符
 }
 /*******************************************************************************************************************/
 /*--------------------------------------------------------------------------------------------------[E] 菜单样式 [E]*/
@@ -91,6 +106,8 @@ void Debug_IMU963RA_UI(void)
 int Debug_BUZ           (void);
 int Debug_MOTOR         (void);
 int Debug_IMU963RA      (void);
+int Debug_UART2         (void);
+
 
 // [二级界面]Debug模式界面
 int Debug_Page_Menu(void)
@@ -114,13 +131,13 @@ int Debug_Page_Menu(void)
         {
             key_pressed = 1;
             Debug_Page_flag --;
-            if (Debug_Page_flag < 1)Debug_Page_flag = 3;
+            if (Debug_Page_flag < 1)Debug_Page_flag = 4;
         }
         else if (Key_Check(KEY_NAME_DOWN,KEY_SINGLE))
         {
             key_pressed = 1;
             Debug_Page_flag ++;
-            if (Debug_Page_flag > 3)Debug_Page_flag = 1;
+            if (Debug_Page_flag > 4)Debug_Page_flag = 1;
         }
         else if (Key_Check(KEY_NAME_CONFIRM,KEY_SINGLE))
         {
@@ -164,6 +181,16 @@ int Debug_Page_Menu(void)
             Debug_Page_Menu_UI(1);
             ips200_show_string(0  ,64 , ">");
         }
+        else if (Debug_Page_flag_temp == 4)
+        {
+            ips200_clear();
+            Debug_UART2();
+            
+            // 从子界面返回后
+            ips200_clear();
+            Debug_Page_Menu_UI(1);
+            ips200_show_string(0  ,80 , ">");
+        }
         
 
         /* 显示更新*/
@@ -188,6 +215,14 @@ int Debug_Page_Menu(void)
                     Debug_Page_Menu_UI(1);
                     ips200_show_string(0  ,64 , ">");
 
+                    break;
+                case 4:
+                    ips200_clear();
+                    Debug_Page_Menu_UI(1);
+                    ips200_show_string(0  ,80 , ">");
+
+                    break;
+                default:
                     break;
             }
         }
@@ -592,6 +627,42 @@ int Debug_IMU963RA(void)
         ips200_Printf(24 ,144, "%.1f ", Roll_Result);
         ips200_Printf(104,144, "%.1f ", Yaw_Result);
         ips200_Printf(184,144, "%.1f ", Pitch_Result);
+    }
+}
+
+
+// #   #   ###   ####   #####  #####  
+// #   #  #   #  #   #    #        #  
+// #   #  #####  ####     #    #####  
+// #   #  #   #  #  #     #    #      
+//  ###   #   #  #   #    #    #####  
+//
+// [三级界面]IMU963RA调试
+int Debug_IMU963RA(void)
+{
+    Debug_IMU963RA_UI();
+
+    while(1)
+    {
+        /* 按键处理*/     
+        // if (Key_Check(KEY_NAME_UP,KEY_SINGLE)) 
+        // {
+
+        // }
+        // else if (Key_Check(KEY_NAME_DOWN,KEY_SINGLE)) 
+        // {
+
+        // }
+        // else if (Key_Check(KEY_NAME_CONFIRM,KEY_SINGLE)) 
+        // {
+
+        // }
+        // else 
+        if (Key_Check(KEY_NAME_BACK,KEY_SINGLE))
+        {
+            // 返回上一级界面
+            return 0;   
+        }
     }
 }
 /*******************************************************************************************************************/
