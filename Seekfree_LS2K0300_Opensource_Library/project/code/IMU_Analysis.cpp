@@ -766,13 +766,13 @@ static float Mag_Get_Yaw_Update(void)
     float mz = (float)mag_z;
 
     float acc_norm = sqrtf(ax * ax + ay * ay + az * az);
-    if (acc_norm &lt; 1e-6f) return yaw_only.mag_get_yaw.yaw_filtered;
+    if (acc_norm < 1e-6f) return yaw_only.mag_get_yaw.yaw_filtered;
     ax /= acc_norm;
     ay /= acc_norm;
     az /= acc_norm;
 
     float mag_norm = sqrtf(mx * mx + my * my + mz * mz);
-    if (mag_norm &lt; 1e-6f) return yaw_only.mag_get_yaw.yaw_filtered;
+    if (mag_norm < 1e-6f) return yaw_only.mag_get_yaw.yaw_filtered;
     mx /= mag_norm;
     my /= mag_norm;
     mz /= mag_norm;
@@ -801,7 +801,7 @@ static float Mag_Get_Yaw_Update(void)
     float my_h = r21 * mx + r22 * my + r23 * mz;
 
     float mag_h_norm = sqrtf(mx_h * mx_h + my_h * my_h);
-    if (mag_h_norm &lt; 1e-6f) return yaw_only.mag_get_yaw.yaw_filtered;
+    if (mag_h_norm < 1e-6f) return yaw_only.mag_get_yaw.yaw_filtered;
 
     mx_h /= mag_h_norm;
     my_h /= mag_h_norm;
@@ -812,8 +812,8 @@ static float Mag_Get_Yaw_Update(void)
     yaw_deg += yaw_only.mag_get_yaw.mag_declination;
 
     float yaw_mag = -yaw_deg;
-    while (yaw_mag &gt; 180.0f) yaw_mag -= 360.0f;
-    while (yaw_mag &lt; -180.0f) yaw_mag += 360.0f;
+    while (yaw_mag > 180.0f) yaw_mag -= 360.0f;
+    while (yaw_mag < -180.0f) yaw_mag += 360.0f;
 
     return -yaw_mag;
 }
@@ -831,7 +831,6 @@ static float Mahony_YawOnly_Update(float dt)
 
     float gx, gy, gz;
     float ax, ay, az;
-    float mx, my, mz;
     float recipNorm;
 
     float q0 = yaw_only.mahony.q.q0;
@@ -853,7 +852,7 @@ static float Mahony_YawOnly_Update(float dt)
     float kp;
     float ki;
 
-    if (dt &lt;= 1e-6f)
+    if (dt <= 1e-6f)
     {
         dt = 0.01f;
     }
@@ -868,14 +867,14 @@ static float Mahony_YawOnly_Update(float dt)
     float my = (float)mag_y;
     float mz = (float)mag_z;
 
-    float declination_rad = yaw_only.mahony.mag_declination * PI / 180.0f;
+    float declination_rad = yaw_only.mag_get_yaw.mag_declination * PI / 180.0f;
     float mx_raw = mx;
     float my_raw = my;
     mx = mx_raw * cosf(declination_rad) - my_raw * sinf(declination_rad);
     my = mx_raw * sinf(declination_rad) + my_raw * cosf(declination_rad);
 
     recipNorm = invSqrt(ax * ax + ay * ay + az * az);
-    if (recipNorm &lt; 1e-6f)
+    if (recipNorm < 1e-6f)
     {
         return Yaw_Result;
     }
@@ -884,7 +883,7 @@ static float Mahony_YawOnly_Update(float dt)
     az *= recipNorm;
 
     recipNorm = invSqrt(mx * mx + my * my + mz * mz);
-    if (recipNorm &lt; 1e-6f)
+    if (recipNorm < 1e-6f)
     {
         return Yaw_Result;
     }
@@ -920,7 +919,7 @@ static float Mahony_YawOnly_Update(float dt)
     ey = (az * vx - ax * vz) + (mz * wx - mx * wz);
     ez = (ax * vy - ay * vx) + (mx * wy - my * wx);
 
-    if (ki &gt; 0.0f)
+    if (ki > 0.0f)
     {
         yaw_only.mahony.exInt += ex * ki * dt;
         yaw_only.mahony.eyInt += ey * ki * dt;
@@ -982,13 +981,12 @@ static float Madgwick_YawOnly_Update(float dt)
 
     float gx, gy, gz;
     float ax, ay, az;
-    float mx, my, mz;
     float q0 = yaw_only.madgwick.q.q0;
     float q1 = yaw_only.madgwick.q.q1;
     float q2 = yaw_only.madgwick.q.q2;
     float q3 = yaw_only.madgwick.q.q3;
 
-    if (dt &lt;= 1e-6f)
+    if (dt <= 1e-6f)
     {
         dt = 0.01f;
     }
@@ -1002,14 +1000,14 @@ static float Madgwick_YawOnly_Update(float dt)
     float my = (float)mag_y;
     float mz = (float)mag_z;
 
-    float declination_rad = yaw_only.mahony.mag_declination * PI / 180.0f;
+    float declination_rad = yaw_only.mag_get_yaw.mag_declination * PI / 180.0f;
     float mx_raw = mx;
     float my_raw = my;
     mx = mx_raw * cosf(declination_rad) - my_raw * sinf(declination_rad);
     my = mx_raw * sinf(declination_rad) + my_raw * cosf(declination_rad);
 
     recipNorm = invSqrt(ax * ax + ay * ay + az * az);
-    if (recipNorm &lt; 1e-6f)
+    if (recipNorm < 1e-6f)
     {
         return atan2f(2.0f * (q1 * q2 + q0 * q3), q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3) * 180.0f / PI;
     }
@@ -1018,7 +1016,7 @@ static float Madgwick_YawOnly_Update(float dt)
     az *= recipNorm;
 
     recipNorm = invSqrt(mx * mx + my * my + mz * mz);
-    if (recipNorm &lt; 1e-6f)
+    if (recipNorm < 1e-6f)
     {
         return atan2f(2.0f * (q1 * q2 + q0 * q3), q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3) * 180.0f / PI;
     }
@@ -1074,7 +1072,7 @@ static float Madgwick_YawOnly_Update(float dt)
        + _2bx * q1 * (_2bx * (q0q2 + q1q3) + _2bz * (0.5f - q1q1 - q2q2) - mz);
 
     recipNorm = invSqrt(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3);
-    if (recipNorm &gt;= 1e-6f)
+    if (recipNorm >= 1e-6f)
     {
         s0 *= recipNorm;
         s1 *= recipNorm;
@@ -1125,7 +1123,7 @@ static float TiltMagYaw_Update(float dt)
     float yaw_deg;
     float kp, ki;
 
-    if (dt &lt;= 1e-6f)
+    if (dt <= 1e-6f)
     {
         dt = 0.01f;
     }
@@ -1149,14 +1147,14 @@ static float TiltMagYaw_Update(float dt)
     float yaw_gyro_inc;
     float yaw_error;
 
-    if (acc_norm &gt; 1e-6f)
+    if (acc_norm > 1e-6f)
     {
         ax /= acc_norm;
         ay /= acc_norm;
         az /= acc_norm;
     }
 
-    if (mag_norm &gt; 1e-6f)
+    if (mag_norm > 1e-6f)
     {
         mx /= mag_norm;
         my /= mag_norm;
@@ -1183,25 +1181,25 @@ static float TiltMagYaw_Update(float dt)
     yaw_mag = atan2f(my_level, mx_level);
     yaw_mag = yaw_mag * 180.0f / PI;
 
-    while (yaw_mag &gt; 180.0f) yaw_mag -= 360.0f;
-    while (yaw_mag &lt; -180.0f) yaw_mag += 360.0f;
+    while (yaw_mag > 180.0f) yaw_mag -= 360.0f;
+    while (yaw_mag < -180.0f) yaw_mag += 360.0f;
 
     yaw_deg = yaw_only.tilt_mag_yaw.yaw;
     yaw_gyro_inc = gz * 180.0f / PI * dt;
     yaw_deg += yaw_gyro_inc;
 
-    while (yaw_deg &gt; 180.0f) yaw_deg -= 360.0f;
-    while (yaw_deg &lt; -180.0f) yaw_deg += 360.0f;
+    while (yaw_deg > 180.0f) yaw_deg -= 360.0f;
+    while (yaw_deg < -180.0f) yaw_deg += 360.0f;
 
     yaw_error = -yaw_mag - yaw_deg;
-    while (yaw_error &gt; 180.0f) yaw_error -= 360.0f;
-    while (yaw_error &lt; -180.0f) yaw_error += 360.0f;
+    while (yaw_error > 180.0f) yaw_error -= 360.0f;
+    while (yaw_error < -180.0f) yaw_error += 360.0f;
 
     yaw_only.tilt_mag_yaw.yaw_error_int += yaw_error * ki * dt;
     yaw_deg += kp * yaw_error + yaw_only.tilt_mag_yaw.yaw_error_int;
 
-    while (yaw_deg &gt; 180.0f) yaw_deg -= 360.0f;
-    while (yaw_deg &lt; -180.0f) yaw_deg += 360.0f;
+    while (yaw_deg > 180.0f) yaw_deg -= 360.0f;
+    while (yaw_deg < -180.0f) yaw_deg += 360.0f;
 
     yaw_only.tilt_mag_yaw.yaw = yaw_deg;
     yaw_only.tilt_mag_yaw.yaw_filtered = yaw_only.tilt_mag_yaw.yaw_filter_alpha * (-yaw_deg) +

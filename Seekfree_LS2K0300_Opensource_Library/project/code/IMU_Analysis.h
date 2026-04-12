@@ -15,7 +15,7 @@
 // 3 三轴
 // 6 六轴
 // 9 九轴
-#define IMU_ANALYSIS_MODE               3
+#define IMU_ANALYSIS_MODE             0
 // 仅Yaw输出的解算方法设置
 // 0 关闭
 // 1 Mag_Get_Yaw（仅磁力计+倾斜补偿）
