@@ -15,7 +15,7 @@
 #define SERVO_MOTOR_DUTY(x)         ((float)PWM_DUTY_MAX/(1000.0/(float)SERVO_MOTOR_FREQ)*(0.5+(float)(x)/90.0))
 
 // 定义驱动路径，该路径由设备树生成
-#define SERVO_MOTOR1_PWM            "/dev/zf_device_pwm_servo"
+#define SERVO_MOTOR1_PWM            "/dev/zf_device_pwm_servo"  // 底座
 #define SERVO_MOTOR2_PWM            "/dev/zf_device_pwm_servo2" // 关节2
 #define SERVO_MOTOR3_PWM            "/dev/zf_device_pwm_servo3" // 关节3
 #define SERVO_MOTOR4_PWM            "/dev/zf_device_pwm_servo4" // 夹爪     
