@@ -854,6 +854,8 @@ static void SixAxis_Update(void)
     ey = (az * vx - ax * vz);
     ez = (ax * vy - ay * vx);
 
+    halfT = 0.5f * DELTA_T_6AXIS;
+
     six_axis.exInt += ex * halfT;
     six_axis.eyInt += ey * halfT;
     six_axis.ezInt += ez * halfT;
@@ -861,8 +863,6 @@ static void SixAxis_Update(void)
     gx += Kp * ex + Ki * six_axis.exInt;
     gy += Kp * ey + Ki * six_axis.eyInt;
     gz += Kp * ez + Ki * six_axis.ezInt;
-
-    halfT = 0.5f * DELTA_T_6AXIS;
 
     q0 += (-q1 * gx - q2 * gy - q3 * gz) * halfT;
     q1 += ( q0 * gx + q2 * gz - q3 * gy) * halfT;
