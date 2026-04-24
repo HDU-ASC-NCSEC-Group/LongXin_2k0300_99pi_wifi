@@ -76,7 +76,7 @@ void Debug_IMU963RA_UI(void)
 
     // 0 关闭
     // 1 三轴
-    // 2 六轴
+    // 2 [全欧拉角]六轴
     // 3 九轴
     // 4 [仅输出Yaw]Mag_Get_Yaw(仅磁力计+倾斜补偿)
     // 5 [仅输出Yaw]Mahony AHRS(九轴)
@@ -89,13 +89,13 @@ void Debug_IMU963RA_UI(void)
     #elif DEFINE_IMU_ANALYSIS_MODE == 3
         ips200_show_string(40 ,48 , "9Axis");
     #elif DEFINE_IMU_ANALYSIS_MODE == 4
-        ips200_show_string(40 ,48 , "Yaw-Mag");
+        ips200_show_string(40 ,48 , "Yaw-1");
     #elif DEFINE_IMU_ANALYSIS_MODE == 5
-        ips200_show_string(40 ,48 , "Yaw-Mahony");
+        ips200_show_string(40 ,48 , "Yaw-2");
     #elif DEFINE_IMU_ANALYSIS_MODE == 6
-        ips200_show_string(40 ,48 , "Yaw-Madgwick");
+        ips200_show_string(40 ,48 , "Yaw-3");
     #elif DEFINE_IMU_ANALYSIS_MODE == 7
-        ips200_show_string(40 ,48 , "Yaw-TiltMagYaw");
+        ips200_show_string(40 ,48 , "Yaw-4");
     #endif
 }
 /*******************************************************************************************************************/

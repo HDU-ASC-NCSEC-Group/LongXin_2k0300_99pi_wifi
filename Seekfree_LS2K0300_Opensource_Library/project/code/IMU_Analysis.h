@@ -13,25 +13,13 @@
 // 选择解算方法
 // 0 关闭
 // 1 三轴
-// 2 六轴
+// 2 [全欧拉角]六轴
 // 3 九轴
 // 4 [仅输出Yaw]Mag_Get_Yaw(仅磁力计+倾斜补偿)
 // 5 [仅输出Yaw]Mahony AHRS(九轴)
 // 6 [仅输出Yaw]Madgwick AHRS(九轴)
 // 7 [仅输出Yaw]TiltMagYaw(重力投影磁修正陀螺积分)
 #define DEFINE_IMU_ANALYSIS_MODE       2
-
-
-// 采样周期设置
-#define DELTA_T_3AXIS                   0.001f  // 三轴采样周期
-#define DELTA_T_6AXIS                   0.001f  // 六轴采样周期
-#define DELTA_T_9AXIS                   0.001f  // 九轴采样周期
-
-// 陀螺仪死区阈值
-#define GYRO_DEADZONE                   5.0f
-
-// PI值
-#define PI                              3.1415926535f
 
 
 // 全局变量声明
@@ -41,16 +29,38 @@ extern volatile float Pitch_Result;  // 俯仰角（Pitch）
 // IMU 通信+解析 使能标志位
 extern volatile uint8_t IMU_D_and_A_Enable;
 
-// IMU快速收敛相关
-extern volatile uint8_t imu_quick_count;
-extern volatile uint8_t imu_stable;
 
+
+
+
+
+/*======================================================*/
+/*[数据读取]**********************************************/
+/*======================================================*/
 
 // IMU获取数据
 void IMU_Update_Data(void);
+/*======================================================*/
+/**********************************************[数据读取]*/
+/*======================================================*/
+
+
+
+
+
+
+/*======================================================*/
+/*[加速度计]**********************************************/
+/*======================================================*/
 
 // 应用加速度计数据
 void    IMU_Acc_Apply       (float *ax, float *ay, float *az);
+/*======================================================*/
+/**********************************************[加速度计]*/
+/*======================================================*/
+
+
+
 
 
 
@@ -87,12 +97,15 @@ typedef enum {
 
 extern Gyro_Calib_StructDef gyro_cal;
 
-void    IMU_Gyro_Calib_Start       (Gyro_Calib_StructDef *cal);
-int     IMU_Gyro_Calib_Check       (Gyro_Calib_StructDef *cal);
-void    IMU_Gyro_Apply       (Gyro_Calib_StructDef *cal, float *gx, float *gy, float *gz);
+void    IMU_Gyro_Calib_Start        (Gyro_Calib_StructDef *cal);
+int     IMU_Gyro_Calib_Check        (Gyro_Calib_StructDef *cal);
+void    IMU_Gyro_Apply              (Gyro_Calib_StructDef *cal, float *gx, float *gy, float *gz);
 /*======================================================*/
 /********************************************[陀螺仪校准]*/
 /*======================================================*/
+
+
+
 
 
 
@@ -134,117 +147,112 @@ typedef enum {
 
 extern Mag_Calib_StructDef mag_cal;
 
-void    IMU_Mag_Calib_Start       (Mag_Calib_StructDef *cal);
-int     IMU_Mag_Calib_Check       (Mag_Calib_StructDef *cal);
-void    IMU_Mag_Apply       (Mag_Calib_StructDef *cal, int16_t *mx, int16_t *my, int16_t *mz);
+void    IMU_Mag_Calib_Start         (Mag_Calib_StructDef *cal);
+int     IMU_Mag_Calib_Check         (Mag_Calib_StructDef *cal);
+void    IMU_Mag_Apply               (Mag_Calib_StructDef *cal, int16_t *mx, int16_t *my, int16_t *mz);
 /*======================================================*/
 /********************************************[磁力计校准]*/
 /*======================================================*/
 
 
 
+
+
+
 /*======================================================*/
-/*[解算结构体定义]*****************************************/
+/*[姿态解算]**********************************************/
 /*======================================================*/
-// 四元数结构体
+
+
+
+#if DEFINE_IMU_ANALYSIS_MODE == 1      
+
+#endif
+
+
+#if DEFINE_IMU_ANALYSIS_MODE == 2
+/*******************************************************************************************************************/
+/*[S] [全欧拉角]六轴 [S]---------------------------------------------------------------------------------------------*/
+/*******************************************************************************************************************/
+// ICM传感器原始数据及处理后数据结构体类型
+typedef struct {
+    float gyro_x;   // 陀螺仪X轴角速度(rad/s)
+    float gyro_y;   // 陀螺仪Y轴角速度(rad/s)
+    float gyro_z;   // 陀螺仪Z轴角速度(rad/s)
+    float acc_x;    // 加速度计X轴数据(m/s²)
+    float acc_y;    // 加速度计Y轴数据(m/s²)
+    float acc_z;    // 加速度计Z轴数据(m/s²)
+    float pitch;    // 俯仰角
+    float roll;     // 横滚角
+    float yaw;      // 偏航角
+} imu_param_t;
+
+// 四元数数据结构体类型
 typedef struct {
     float q0;
     float q1;
     float q2;
     float q3;
-} Quaternion_StructDef;
+} quater_param_t;
 
-// Mahony AHRS参数结构体
-typedef struct {
-    Quaternion_StructDef q;         // 四元数
-    float Kp;                        // 比例增益
-    float Ki;                        // 积分增益
-    float quick_Kp;                  // 快速收敛比例增益
-    float quick_Ki;                  // 快速收敛积分增益
-    float exInt;                     // 误差积分项X
-    float eyInt;                     // 误差积分项Y
-    float ezInt;                     // 误差积分项Z
-    uint8_t quick_mode;              // 快速收敛模式标志
-} Mahony_AHRS_StructDef;
-
-// 三轴姿态解算结构体
-typedef struct {
-    Quaternion_StructDef q;         // 四元数
-} ThreeAxis_StructDef;
-
-// 九轴姿态解算结构体
-typedef struct {
-    Mahony_AHRS_StructDef mahony;   // Mahony算法参数
-    float mag_declination;           // 磁偏角
-} NineAxis_StructDef;
-
-// Mag_Get_Yaw算法结构体
-typedef struct {
-    float mag_declination;           // 磁偏角
-    float yaw_filter_alpha;          // Yaw滤波系数
-    float yaw_filtered;              // 滤波后的Yaw
-} Mag_Get_Yaw_StructDef;
-
-// Madgwick AHRS参数结构体
-typedef struct {
-    Quaternion_StructDef q;          // 四元数
-    float beta;                       // 梯度下降步长
-    float quick_beta;                 // 快速收敛梯度下降步长
-    float invSampleFreq;              // 采样周期倒数
-    float mag_declination;            // 磁偏角
-} Madgwick_AHRS_StructDef;
-
-// TiltMagYaw算法结构体
-typedef struct {
-    float yaw;                        // Yaw角
-    float yaw_filtered;               // 滤波后的Yaw
-    float yaw_error_int;              // Yaw误差积分
-    float kp;                         // 比例增益
-    float ki;                         // 积分增益
-    float quick_kp;                   // 快速收敛比例增益
-    float quick_ki;                   // 快速收敛积分增益
-    float yaw_filter_alpha;           // Yaw滤波系数
-    float mag_declination;            // 磁偏角
-} TiltMagYaw_StructDef;
-
-// Yaw-only算法联合体
-typedef struct {
-    Mag_Get_Yaw_StructDef mag_get_yaw;
-    Mahony_AHRS_StructDef mahony;
-    Madgwick_AHRS_StructDef madgwick;
-    TiltMagYaw_StructDef tilt_mag_yaw;
-} YawOnly_UnionDef;
-/*======================================================*/
-/*****************************************[解算结构体定义]*/
-/*======================================================*/
-
-// 全局变量声明
-#if DEFINE_IMU_ANALYSIS_MODE == 1
-
-    extern ThreeAxis_StructDef three_axis;
+// 结构体变量外部声明
+extern imu_param_t       imu_data_t;    // IMU传感器数据
+extern quater_param_t    Q_info;        // 六轴四元数
+/*******************************************************************************************************************/
+/*--------------------------------------------------------------------------------------------[E] [全欧拉角]六轴 [E]-*/
+/*******************************************************************************************************************/
 #endif
-#if DEFINE_IMU_ANALYSIS_MODE == 2
 
-    extern Mahony_AHRS_StructDef six_axis;
-#endif
+
 #if DEFINE_IMU_ANALYSIS_MODE == 3
 
-    extern NineAxis_StructDef nine_axis;
 #endif
-#if DEFINE_IMU_ANALYSIS_MODE == 4 || \
-    DEFINE_IMU_ANALYSIS_MODE == 5 || \
-    DEFINE_IMU_ANALYSIS_MODE == 6 || \
-    DEFINE_IMU_ANALYSIS_MODE == 7
 
-    extern YawOnly_UnionDef yaw_only;
+
+#if DEFINE_IMU_ANALYSIS_MODE == 4
+
 #endif
+
+
+#if DEFINE_IMU_ANALYSIS_MODE == 5
+
+#endif
+
+
+#if DEFINE_IMU_ANALYSIS_MODE == 6
+
+#endif
+
+
+#if DEFINE_IMU_ANALYSIS_MODE == 7
+
+#endif
+
 
 // IMU姿态解算
 void    IMU_Update_Analysis         (void);
+/*======================================================*/
+/**********************************************[姿态解算]*/
+/*======================================================*/
 
-// 工具性函数
+
+
+
+
+
+/*======================================================*/
+/*[外部调用工具性函数]**************************************/
+/*======================================================*/
 
 // 重置IMU姿态角数据
 void    IMU_Reset_Data              (void);
+/*======================================================*/
+/**************************************[外部调用工具性函数]*/
+/*======================================================*/
+
+
+
+
+
 
 #endif

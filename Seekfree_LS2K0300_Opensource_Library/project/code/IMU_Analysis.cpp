@@ -11,7 +11,6 @@
 
 #include "IMU_Analysis.h"
 #include <math.h>
-#include <chrono>
 
 
 
@@ -40,76 +39,9 @@ volatile uint8_t imu_stable = 0;
 
 
 
-/*******************************************************************************************************************/
-/*[S] 通用工具函数 [S]--------------------------------------------------------------------------------------------*/
-/*******************************************************************************************************************/
-
-#if DEFINE_IMU_ANALYSIS_MODE > 0
-// 逆平方根函数
-static float invSqrt(float x)
-{
-    float halfx = 0.5f * x;
-    float y = x;
-    union { float f; uint32_t i; } converter;
-    converter.f = y;
-    converter.i = 0x5f3759df - (converter.i >> 1);
-    y = converter.f;
-    y = y * (1.5f - (halfx * y * y));
-    return y;
-}
-#endif
-
-#if DEFINE_IMU_ANALYSIS_MODE > 0
-// 角度范围限制函数
-static float wrap_angle_deg(float angle)
-{
-    while (angle > 180.0f)
-    {
-        angle -= 360.0f;
-    }
-    while (angle < -180.0f)
-    {
-        angle += 360.0f;
-    }
-    return angle;
-}
-#endif
-
-#if DEFINE_IMU_ANALYSIS_MODE == 4 || \
-    DEFINE_IMU_ANALYSIS_MODE == 5 || \
-    DEFINE_IMU_ANALYSIS_MODE == 6 || \
-    DEFINE_IMU_ANALYSIS_MODE == 7
-// 陀螺仪数据处理函数
-// 输入：陀螺仪原始数据
-// 输出：处理后的陀螺仪数据
-static void gyro_data_process(float *gx, float *gy, float *gz)
-{
-    float gx_temp = (float)imu963ra_gyro_x - gyro_cal.offset_x;
-    float gy_temp = (float)imu963ra_gyro_y - gyro_cal.offset_y;
-    float gz_temp = (float)imu963ra_gyro_z - gyro_cal.offset_z;
-
-    if (gx_temp < 7.0f && gx_temp > -7.0f) gx_temp = 0.0f;
-    if (gy_temp < 7.0f && gy_temp > -7.0f) gy_temp = 0.0f;
-    if (gz_temp < 7.0f && gz_temp > -7.0f) gz_temp = 0.0f;
-
-    *gx = (float)(gx_temp / 10.0f * 10.0f) * PI / 180.0f;
-    *gy = (float)(gy_temp / 10.0f * 10.0f) * PI / 180.0f;
-    *gz = (float)(gz_temp / 10.0f * 10.0f) * PI / 180.0f;
-}
-#endif
-
-/*******************************************************************************************************************/
-/*--------------------------------------------------------------------------------------------[E] 通用工具函数 [E]*/
-/*******************************************************************************************************************/
-
-
-
-
-
-
-/*******************************************************************************************************************/
-/*[S] 读取数据 [S]--------------------------------------------------------------------------------------------------*/
-/*******************************************************************************************************************/
+/*======================================================*/
+/*[数据读取]**********************************************/
+/*======================================================*/
 
 //-------------------------------------------------------------------------------------------------------------------
 // 函数简介     IMU 获取原始数据
@@ -129,15 +61,17 @@ void IMU_Update_Data(void)
         imu963ra_get_gyro();
         imu963ra_get_mag();
 }
-/*******************************************************************************************************************/
-/*--------------------------------------------------------------------------------------------------[E] 读取数据 [E]*/
-/*******************************************************************************************************************/
+/*======================================================*/
+/**********************************************[数据读取]*/
+/*======================================================*/
 
 
 
 
 
-
+/*======================================================*/
+/*[加速度计]**********************************************/
+/*======================================================*/
 
 //-------------------------------------------------------------------------------------------------------------------
 // 函数简介     应用加速度计校准参数
@@ -149,15 +83,18 @@ void IMU_Acc_Apply(float *ax, float *ay, float *az)
     *ay = (float)imu963ra_acc_y;
     *az = (float)imu963ra_acc_z;
 }
+/*======================================================*/
+/**********************************************[加速度计]*/
+/*======================================================*/
 
 
 
 
 
 
-/*******************************************************************************************************************/
-/*[S] 陀螺仪校准 [S]------------------------------------------------------------------------------------------------*/
-/*******************************************************************************************************************/
+/*======================================================*/
+/*[陀螺仪校准]********************************************/
+/*======================================================*/
 
 // 定义并初始化陀螺仪校准结构体
 Gyro_Calib_StructDef gyro_cal = {
@@ -276,18 +213,18 @@ void IMU_Gyro_Apply(Gyro_Calib_StructDef *cal, float *gx, float *gy, float *gz)
         *gz = (float)imu963ra_gyro_z;
     }
 }
-/*******************************************************************************************************************/
-/*------------------------------------------------------------------------------------------------[E] 陀螺仪校准 [E]*/
-/*******************************************************************************************************************/
+/*======================================================*/
+/********************************************[陀螺仪校准]*/
+/*======================================================*/
 
 
 
 
 
 
-/*******************************************************************************************************************/
-/*[S] 磁力计校准 [S]------------------------------------------------------------------------------------------------*/
-/*******************************************************************************************************************/
+/*======================================================*/
+/*[磁力计校准]********************************************/
+/*======================================================*/
 
 // 磁力计校准结构体变量
 Mag_Calib_StructDef mag_cal = {
@@ -710,180 +647,156 @@ void IMU_Mag_Apply(Mag_Calib_StructDef *cal, int16_t *mx, int16_t *my, int16_t *
         *mz = (int16_t)imu963ra_mag_z;
     }
 }
-/*******************************************************************************************************************/
-/*------------------------------------------------------------------------------------------------[E] 磁力计校准 [E]*/
-/*******************************************************************************************************************/
+/*======================================================*/
+/********************************************[磁力计校准]*/
+/*======================================================*/
 
 
 
 
 
 
+/*======================================================*/
+/*[姿态解算]**********************************************/
+/*======================================================*/
 
 #if DEFINE_IMU_ANALYSIS_MODE == 1      
-/*******************************************************************************************************************/
-/*-[S] 三轴姿态解算 [S]----------------------------------------------------------------------------------------------*/
-/*******************************************************************************************************************/
 
-// 三轴姿态解算变量
-ThreeAxis_StructDef three_axis = {
-    .q = {1.0f, 0.0f, 0.0f, 0.0f}
-};
-
-static void ThreeAxis_Update(void)
-{
-    float gx, gy, gz;
-    float q0, q1, q2, q3;
-    float halfT;
-
-    IMU_Gyro_Apply(&gyro_cal, &gx, &gy, &gz);
-
-    gx = gx * PI / 180.0f;
-    gy = gy * PI / 180.0f;
-    gz = gz * PI / 180.0f;
-
-    q0 = three_axis.q.q0;
-    q1 = three_axis.q.q1;
-    q2 = three_axis.q.q2;
-    q3 = three_axis.q.q3;
-
-    halfT = 0.5f * DELTA_T_3AXIS;
-
-    q0 += (-q1 * gx - q2 * gy - q3 * gz) * halfT;
-    q1 += ( q0 * gx + q2 * gz - q3 * gy) * halfT;
-    q2 += ( q0 * gy - q1 * gz + q3 * gx) * halfT;
-    q3 += ( q0 * gz + q1 * gy - q2 * gx) * halfT;
-
-    float norm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
-    three_axis.q.q0 = q0 * norm;
-    three_axis.q.q1 = q1 * norm;
-    three_axis.q.q2 = q2 * norm;
-    three_axis.q.q3 = q3 * norm;
-
-    Yaw_Result = atan2f(2.0f * (q1 * q2 + q0 * q3), -2.0f * q2 * q2 - 2.0f * q3 * q3 + 1.0f) * 180.0f / PI;
-    Roll_Result = 0.0f;
-    Pitch_Result = 0.0f;
-}
-
-/*******************************************************************************************************************/
-/*-----------------------------------------------------------------------------------------------[E] 三轴姿态解算 [E]*/
-/*******************************************************************************************************************/
 #endif
+
 
 #if DEFINE_IMU_ANALYSIS_MODE == 2
 /*******************************************************************************************************************/
-/*-[S] 六轴姿态解算 [S]----------------------------------------------------------------------------------------------*/
+/*[S] [全欧拉角]六轴 [S]---------------------------------------------------------------------------------------------*/
 /*******************************************************************************************************************/
 
-// 六轴姿态解算变量
-Mahony_AHRS_StructDef six_axis = {
-    .q = {1.0f, 0.0f, 0.0f, 0.0f},
-    .Kp = 0.0001f,
-    .Ki = -0.0000324f,
-    .quick_Kp = 10.0f,
-    .quick_Ki = 0.005f,
-    .exInt = 0.0f,
-    .eyInt = 0.0f,
-    .ezInt = 0.0f,
-    .quick_mode = 0
-};
+#define PI                          3.14159265358979f
+#define YAW_DEADZONE_THRESHOLD      0.00005f                                // Yaw角单次更新死区阈值
+#define DELTA_T                     0.0010055f                              // 六轴四元数采样时间
 
-// 加速度计滤波
-static float ax_filtered = 0.0f, ay_filtered = 0.0f, az_filtered = 0.0f;
-static bool acc_filter_first_run = true;
-const float IMU_ALPHA = 0.3f;  // 滤波系数
-// Yaw角滤波
-static float last_raw_yaw = 0.0f;
-static float accumulated_yaw_drift = 0.0f;
-static bool yaw_filter_first_run = true;
-const float YAW_DEADZONE_THRESHOLD = 2.0f;  // Yaw死区阈值
+quater_param_t    Q_info = {1.0f, 0.0f, 0.0f, 0.0f};                        // 六轴位姿四元数
 
-static void SixAxis_Update(void)
+float             param_Kp = 0.0001f;                                       // 加速度计收敛速率比例增益
+float             param_Ki = -0.0000324f;                                   // 陀螺仪收敛速率积分增益
+
+static float      I_ex = 0.0f, I_ey = 0.0f, I_ez = 0.0f;                    // 误差积分项
+static float      vx = 0.0f, vy = 0.0f, vz = 0.0f;                          // 机体坐标系上的重力单位向量
+
+static float      last_raw_yaw = 0.0f;                                      // 上一次的原始 Yaw 角
+static float      accumulated_yaw_drift = 0.0f;                             // 累积的死区误差
+static bool       yaw_first_run = true;                                     // 第一次运行标志
+
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     快速平方根倒数
+// 参数说明     x               输入值
+// 返回参数     float           输出值 (1/sqrt(x))
+// 使用示例     inv_sqrt = fast_sqrt(norm);
+// 备注信息     Quake III 经典算法
+//-------------------------------------------------------------------------------------------------------------------
+float fast_sqrt(float x)
 {
-    float gx, gy, gz;
-    float ax, ay, az;
-    float q0, q1, q2, q3;
-    float halfT;
-    float norm;
-    float vx, vy, vz;
+    float halfx = 0.5f * x;
+    float y = x;
+
+    int32_t i;
+    memcpy(&i, &y, sizeof(int32_t));
+    i = 0x5f3759df - (i >> 1);
+    memcpy(&y, &i, sizeof(int32_t));
+    y = y * (1.5f - (halfx * y * y));
+    return y;
+}
+
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     互补滤波 AHRS 姿态更新算法
+// 参数说明     gx, gy, gz      陀螺仪角速度 (rad/s)
+// 参数说明     ax, ay, az      加速度计数据 (m/s^2)
+// 返回参数     void
+// 使用示例     IMU_AHRSupdate(gx, gy, gz, ax, ay, az);
+// 备注信息     更新全局四元数 Q_info
+//-------------------------------------------------------------------------------------------------------------------
+void IMU_AHRSupdate(float gx, float gy, float gz, float ax, float ay, float az)
+{
+    float halfT = 0.5f * DELTA_T;
     float ex, ey, ez;
-    float Kp, Ki;
+    float q0 = Q_info.q0;
+    float q1 = Q_info.q1;
+    float q2 = Q_info.q2;
+    float q3 = Q_info.q3;
+    float q0q0 = q0 * q0;
+    float q0q1 = q0 * q1;
+    float q0q2 = q0 * q2;
+    float q1q1 = q1 * q1;
+    float q1q3 = q1 * q3;
+    float q2q2 = q2 * q2;
+    float q2q3 = q2 * q3;
+    float q3q3 = q3 * q3;
 
-    IMU_Acc_Apply(&ax, &ay, &az);
-    // 一阶低通滤波
-    if (acc_filter_first_run) {
-        ax_filtered = ax;
-        ay_filtered = ay;
-        az_filtered = az;
-        acc_filter_first_run = false;
-    } else {
-        ax_filtered = ax * IMU_ALPHA + ax_filtered * (1.0f - IMU_ALPHA);
-        ay_filtered = ay * IMU_ALPHA + ay_filtered * (1.0f - IMU_ALPHA);
-        az_filtered = az * IMU_ALPHA + az_filtered * (1.0f - IMU_ALPHA);
+    float norm = fast_sqrt(ax * ax + ay * ay + az * az);
+    ax = ax * norm;
+    ay = ay * norm;
+    az = az * norm;
+
+    vx = 2.0f * (q1q3 - q0q2);
+    vy = 2.0f * (q0q1 + q2q3);
+    vz = q0q0 - q1q1 - q2q2 + q3q3;
+
+    ex = ay * vz - az * vy;
+    ey = az * vx - ax * vz;
+    ez = ax * vy - ay * vx;
+
+    I_ex += halfT * ex;
+    I_ey += halfT * ey;
+    I_ez += halfT * ez;
+
+    gx = gx + param_Kp * ex + param_Ki * I_ex;
+    gy = gy + param_Kp * ey + param_Ki * I_ey;
+    gz = gz + param_Kp * ez + param_Ki * I_ez;
+
+    q0 = q0 + (-q1 * gx - q2 * gy - q3 * gz) * halfT;
+    q1 = q1 + (q0 * gx + q2 * gz - q3 * gy) * halfT;
+    q2 = q2 + (q0 * gy - q1 * gz + q3 * gx) * halfT;
+    q3 = q3 + (q0 * gz + q1 * gy - q2 * gx) * halfT;
+
+    norm = fast_sqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+    Q_info.q0 = q0 * norm;
+    Q_info.q1 = q1 * norm;
+    Q_info.q2 = q2 * norm;
+    Q_info.q3 = q3 * norm;
+}
+
+//-------------------------------------------------------------------------------------------------------------------
+// 函数简介     获取欧拉角 (基于六轴互补滤波)
+// 参数说明     void
+// 返回参数     void
+// 使用示例     IMU_getEulerianAngles();
+// 备注信息     包含 Yaw 角死区滤波处理
+//-------------------------------------------------------------------------------------------------------------------
+void IMU_getEulerianAngles(void)
+{
+    IMU_Acc_Apply(&imu_data_t.acc_x, &imu_data_t.acc_y, &imu_data_t.acc_z);
+    IMU_Gyro_Apply(&gyro_cal, &imu_data_t.gyro_x, &imu_data_t.gyro_y, &imu_data_t.gyro_z);
+
+     // 陀螺仪角速度转弧度
+    imu_data_t.gyro_x = (-imu_data_t.gyro_x) * PI / 180.0f;
+    imu_data_t.gyro_y = (imu_data_t.gyro_y) * PI / 180.0f;
+    imu_data_t.gyro_z = (-imu_data_t.gyro_z) * PI / 180.0f;
+
+    IMU_AHRSupdate(imu_data_t.gyro_x, imu_data_t.gyro_y, imu_data_t.gyro_z, imu_data_t.acc_x, imu_data_t.acc_y, imu_data_t.acc_z);
+
+    float q0 = Q_info.q0;
+    float q1 = Q_info.q1;
+    float q2 = Q_info.q2;
+    float q3 = Q_info.q3;
+
+    // 计算当前的原始Yaw角
+    float raw_yaw = atan2f(2.0f * q1 * q2 + 2.0f * q0 * q3, -2.0f * q2 * q2 - 2.0f * q3 * q3 + 1.0f) * 180.0f / PI;
+
+    if (yaw_first_run)
+    {
+        last_raw_yaw = raw_yaw;
+        yaw_first_run = false;
     }
 
-    // 使用滤波后的数据
-    ax = ax_filtered;
-    ay = ay_filtered;
-    az = az_filtered;
-
-    IMU_Gyro_Apply(&gyro_cal, &gx, &gy, &gz);
-
-    gx = gx * PI / 180.0f;
-    gy = gy * PI / 180.0f;
-    gz = gz * PI / 180.0f;
-
-    q0 = six_axis.q.q0;
-    q1 = six_axis.q.q1;
-    q2 = six_axis.q.q2;
-    q3 = six_axis.q.q3;
-
-    Kp = six_axis.Kp;
-    Ki = six_axis.Ki;
-
-    norm = invSqrt(ax * ax + ay * ay + az * az);
-    ax *= norm;
-    ay *= norm;
-    az *= norm;
-
-    vx = 2.0f * (q1 * q3 - q0 * q2);
-    vy = 2.0f * (q0 * q1 + q2 * q3);
-    vz = q0 * q0 - q1 * q1 - q2 * q2 + q3 * q3;
-
-    ex = (ay * vz - az * vy);
-    ey = (az * vx - ax * vz);
-    ez = (ax * vy - ay * vx);
-
-    halfT = 0.5f * DELTA_T_6AXIS;
-
-    six_axis.exInt += ex * halfT;
-    six_axis.eyInt += ey * halfT;
-    six_axis.ezInt += ez * halfT;
-
-    gx += Kp * ex + Ki * six_axis.exInt;
-    gy += Kp * ey + Ki * six_axis.eyInt;
-    gz += Kp * ez + Ki * six_axis.ezInt;
-
-    q0 += (-q1 * gx - q2 * gy - q3 * gz) * halfT;
-    q1 += ( q0 * gx + q2 * gz - q3 * gy) * halfT;
-    q2 += ( q0 * gy - q1 * gz + q3 * gx) * halfT;
-    q3 += ( q0 * gz + q1 * gy - q2 * gx) * halfT;
-
-    norm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
-    six_axis.q.q0 = q0 * norm;
-    six_axis.q.q1 = q1 * norm;
-    six_axis.q.q2 = q2 * norm;
-    six_axis.q.q3 = q3 * norm;
-
-    Roll_Result = atan2f(2.0f * (q0 * q1 + q2 * q3), 1.0f - 2.0f * (q1 * q1 + q2 * q2)) * 180.0f / PI;
-    Pitch_Result = asinf(2.0f * (q0 * q2 - q3 * q1)) * 180.0f / PI;
-//    Yaw_Result = atan2f(2.0f * (q1 * q2 + q0 * q3), -2.0f * q2 * q2 - 2.0f * q3 * q3 + 1.0f) * 180.0f / PI;
-    // 计算原始Yaw角
-    float raw_yaw = atan2f(2.0f * (q1 * q2 + q0 * q3), -2.0f * q2 * q2 - 2.0f * q3 * q3 + 1.0f) * 180.0f / PI;
-    if (yaw_filter_first_run) {
-    last_raw_yaw = raw_yaw;
-    yaw_filter_first_run = false;   
-    }
     // 计算两次Yaw角之间的变化值
     float diff = raw_yaw - last_raw_yaw;
 
@@ -891,678 +804,60 @@ static void SixAxis_Update(void)
     if (diff > 180.0f)       diff -= 360.0f;
     else if (diff < -180.0f) diff += 360.0f;
 
-    // 死区滤波处理
-    if (fabsf(diff) < YAW_DEADZONE_THRESHOLD) {
+    // 如果变化值小于死区阈值，认为是噪声或漂移，进行累积以便后续减除
+    if (fabsf(diff) < YAW_DEADZONE_THRESHOLD)
+    {
         accumulated_yaw_drift += diff;
     }
 
     last_raw_yaw = raw_yaw;
 
     // 减去累积的死区误差
-    float filtered_yaw = raw_yaw - accumulated_yaw_drift;
+    float Daty_Z = raw_yaw - accumulated_yaw_drift;
 
     // 归一化到 [-180, 180]
-    while (filtered_yaw > 180.0f)  filtered_yaw -= 360.0f;
-    while (filtered_yaw < -180.0f) filtered_yaw += 360.0f;
+    while (Daty_Z > 180.0f)  Daty_Z -= 360.0f;
+    while (Daty_Z < -180.0f) Daty_Z += 360.0f;
 
-    Yaw_Result = filtered_yaw;
+    imu_data_t.yaw = Daty_Z;
+
+    // 赋值给项目统一的Yaw解算结果变量
+    Yaw_Result = Daty_Z;
 }
-
 /*******************************************************************************************************************/
-/*-----------------------------------------------------------------------------------------------[E] 六轴姿态解算 [E]*/
+/*---------------------------------------------------------------------------------------------[E] [全欧拉角]六轴 [E]*/
 /*******************************************************************************************************************/
 #endif
+
 
 #if DEFINE_IMU_ANALYSIS_MODE == 3
-/*******************************************************************************************************************/
-/*-[S] 九轴姿态解算 [S]----------------------------------------------------------------------------------------------*/
-/*******************************************************************************************************************/
 
-// 九轴姿态解算变量
-NineAxis_StructDef nine_axis = {
-    .mahony = {
-        .q = {1.0f, 0.0f, 0.0f, 0.0f},
-        .Kp = 2.0f,
-        .Ki = 0.005f,
-        .quick_Kp = 10.0f,
-        .quick_Ki = 0.005f,
-        .exInt = 0.0f,
-        .eyInt = 0.0f,
-        .ezInt = 0.0f,
-        .quick_mode = 1
-    },
-    .mag_declination = 0.0f
-};
-
-static void NineAxis_Update(void)
-{
-    float gx, gy, gz;
-    float ax, ay, az;
-    int16_t mx_raw, my_raw, mz_raw;
-    float mx, my, mz;
-    float q0, q1, q2, q3;
-    float halfT;
-    float norm;
-    float vx, vy, vz;
-    float wx, wy, wz;
-    float hx, hy, bx, bz;
-    float ex, ey, ez;
-    float Kp, Ki;
-
-    IMU_Acc_Apply(&ax, &ay, &az);
-    IMU_Gyro_Apply(&gyro_cal, &gx, &gy, &gz);
-    IMU_Mag_Apply(&mag_cal, &mx_raw, &my_raw, &mz_raw);
-
-    gx = gx * PI / 180.0f;
-    gy = gy * PI / 180.0f;
-    gz = gz * PI / 180.0f;
-
-    mx = (float)mx_raw;
-    my = (float)my_raw;
-    mz = (float)mz_raw;
-
-    q0 = nine_axis.mahony.q.q0;
-    q1 = nine_axis.mahony.q.q1;
-    q2 = nine_axis.mahony.q.q2;
-    q3 = nine_axis.mahony.q.q3;
-
-    Kp = nine_axis.mahony.quick_mode ? nine_axis.mahony.quick_Kp : nine_axis.mahony.Kp;
-    Ki = nine_axis.mahony.quick_mode ? nine_axis.mahony.quick_Ki : nine_axis.mahony.Ki;
-
-    norm = invSqrt(ax * ax + ay * ay + az * az);
-    ax *= norm;
-    ay *= norm;
-    az *= norm;
-
-    norm = invSqrt(mx * mx + my * my + mz * mz);
-    mx *= norm;
-    my *= norm;
-    mz *= norm;
-
-    float q0q0 = q0 * q0;
-    float q0q1 = q0 * q1;
-    float q0q2 = q0 * q2;
-    float q0q3 = q0 * q3;
-    float q1q1 = q1 * q1;
-    float q1q2 = q1 * q2;
-    float q1q3 = q1 * q3;
-    float q2q2 = q2 * q2;
-    float q2q3 = q2 * q3;
-    float q3q3 = q3 * q3;
-
-    vx = 2.0f * (q1q3 - q0q2);
-    vy = 2.0f * (q0q1 + q2q3);
-    vz = q0q0 - q1q1 - q2q2 + q3q3;
-
-    hx = 2.0f * (mx * (0.5f - q2q2 - q3q3) + my * (q1q2 - q0q3) + mz * (q1q3 + q0q2));
-    hy = 2.0f * (mx * (q1q2 + q0q3) + my * (0.5f - q1q1 - q3q3) + mz * (q2q3 - q0q1));
-    bx = sqrtf(hx * hx + hy * hy);
-    bz = 2.0f * (mx * (q1q3 - q0q2) + my * (q2q3 + q0q1) + mz * (0.5f - q1q1 - q2q2));
-
-    wx = 2.0f * bx * (0.5f - q2q2 - q3q3) + 2.0f * bz * (q1q3 - q0q2);
-    wy = 2.0f * bx * (q1q2 - q0q3) + 2.0f * bz * (q0q1 + q2q3);
-    wz = 2.0f * bx * (q0q2 + q1q3) + 2.0f * bz * (0.5f - q1q1 - q2q2);
-
-    ex = (ay * vz - az * vy) + (my * wz - mz * wy);
-    ey = (az * vx - ax * vz) + (mz * wx - mx * wz);
-    ez = (ax * vy - ay * vx) + (mx * wy - my * wx);
-
-    if (Ki > 0.0f)
-    {
-        nine_axis.mahony.exInt += ex * Ki;
-        nine_axis.mahony.eyInt += ey * Ki;
-        nine_axis.mahony.ezInt += ez * Ki;
-    }
-    else
-    {
-        nine_axis.mahony.exInt = 0.0f;
-        nine_axis.mahony.eyInt = 0.0f;
-        nine_axis.mahony.ezInt = 0.0f;
-    }
-
-    gx += Kp * ex + nine_axis.mahony.exInt;
-    gy += Kp * ey + nine_axis.mahony.eyInt;
-    gz += Kp * ez + nine_axis.mahony.ezInt;
-
-    halfT = 0.5f * DELTA_T_9AXIS;
-
-    q0 += (-q1 * gx - q2 * gy - q3 * gz) * halfT;
-    q1 += ( q0 * gx + q2 * gz - q3 * gy) * halfT;
-    q2 += ( q0 * gy - q1 * gz + q3 * gx) * halfT;
-    q3 += ( q0 * gz + q1 * gy - q2 * gx) * halfT;
-
-    norm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
-    nine_axis.mahony.q.q0 = q0 * norm;
-    nine_axis.mahony.q.q1 = q1 * norm;
-    nine_axis.mahony.q.q2 = q2 * norm;
-    nine_axis.mahony.q.q3 = q3 * norm;
-
-    Roll_Result = atan2f(2.0f * (q0 * q1 + q2 * q3), 1.0f - 2.0f * (q1 * q1 + q2 * q2)) * 180.0f / PI;
-    Pitch_Result = asinf(2.0f * (q0 * q2 - q3 * q1)) * 180.0f / PI;
-    Yaw_Result = atan2f(2.0f * (q1 * q2 + q0 * q3), -2.0f * q2 * q2 - 2.0f * q3 * q3 + 1.0f) * 180.0f / PI;
-}
-
-/*******************************************************************************************************************/
-/*-----------------------------------------------------------------------------------------------[E] 九轴姿态解算 [E]*/
-/*******************************************************************************************************************/
 #endif
 
-
-/*******************************************************************************************************************/
-/*[S] 仅Yaw输出姿态解算 [S]------------------------------------------------------------------------------------------*/
-/*******************************************************************************************************************/
-
-// Yaw-only算法变量
-YawOnly_UnionDef yaw_only = {
-    #if DEFINE_IMU_ANALYSIS_MODE == 4
-    .mag_get_yaw = {
-        .mag_declination = 0.0f,
-        .yaw_filter_alpha = 0.3f,
-        .yaw_filtered = 0.0f
-    }
-    #elif DEFINE_IMU_ANALYSIS_MODE == 5
-    .mahony = {
-        .q = {1.0f, 0.0f, 0.0f, 0.0f},
-        .Kp = 2.0f,
-        .Ki = 0.005f,
-        .quick_Kp = 10.0f,
-        .quick_Ki = 0.005f,
-        .exInt = 0.0f,
-        .eyInt = 0.0f,
-        .ezInt = 0.0f,
-        .quick_mode = 1
-    }
-    #elif DEFINE_IMU_ANALYSIS_MODE == 6
-    .madgwick = {
-        .q = {1.0f, 0.0f, 0.0f, 0.0f},
-        .beta = 1.2f,
-        .quick_beta = 10.0f,
-        .invSampleFreq = 0.001f,
-        .mag_declination = 0.0f
-    }
-    #elif DEFINE_IMU_ANALYSIS_MODE == 7
-    .tilt_mag_yaw = {
-        .yaw = 0.0f,
-        .yaw_filtered = 0.0f,
-        .yaw_error_int = 0.0f,
-        .kp = 0.08f,
-        .ki = 0.0025f,
-        .quick_kp = 0.03f,
-        .quick_ki = 0.0010f,
-        .yaw_filter_alpha = 0.3f,
-        .mag_declination = 0.0f
-    }
-    #endif
-};
 
 #if DEFINE_IMU_ANALYSIS_MODE == 4
-//-------------------------------------------------------------------------------------------------------------------
-// 函数简介     Mag_Get_Yaw算法（仅磁力计+倾斜补偿）
-//-------------------------------------------------------------------------------------------------------------------
-static float Mag_Get_Yaw_Update(void)
-{
-    int16_t mag_x = 0, mag_y = 0, mag_z = 0;
-    float ax, ay, az;
 
-    IMU_Mag_Apply(&mag_cal, &mag_x, &mag_y, &mag_z);   
-    IMU_Acc_Apply(&ax, &ay, &az);
-
-    float mx = (float)mag_x;
-    float my = (float)mag_y;
-    float mz = (float)mag_z;
-
-    float acc_norm = sqrtf(ax * ax + ay * ay + az * az);
-    if (acc_norm < 1e-6f) return yaw_only.mag_get_yaw.yaw_filtered;
-    ax /= acc_norm;
-    ay /= acc_norm;
-    az /= acc_norm;
-
-    float mag_norm = sqrtf(mx * mx + my * my + mz * mz);
-    if (mag_norm < 1e-6f) return yaw_only.mag_get_yaw.yaw_filtered;
-    mx /= mag_norm;
-    my /= mag_norm;
-    mz /= mag_norm;
-
-    float roll = atan2f(ay, az);
-    float pitch = atan2f(-ax, sqrtf(ay * ay + az * az));
-
-    float cr = cosf(0.5f * roll);
-    float sr = sinf(0.5f * roll);
-    float cp = cosf(0.5f * pitch);
-    float sp = sinf(0.5f * pitch);
-
-    float q0 = cr * cp;
-    float q1 = sr * cp;
-    float q2 = cr * sp;
-    float q3 = -sr * sp;
-
-    float r11 = 1.0f - 2.0f * (q2 * q2 + q3 * q3);
-    float r12 = 2.0f * (q1 * q2 - q0 * q3);
-    float r13 = 2.0f * (q1 * q3 + q0 * q2);
-    float r21 = 2.0f * (q1 * q2 + q0 * q3);
-    float r22 = 1.0f - 2.0f * (q1 * q1 + q3 * q3);
-    float r23 = 2.0f * (q2 * q3 - q0 * q1);
-
-    float mx_h = r11 * mx + r12 * my + r13 * mz;
-    float my_h = r21 * mx + r22 * my + r23 * mz;
-
-    float mag_h_norm = sqrtf(mx_h * mx_h + my_h * my_h);
-    if (mag_h_norm < 1e-6f) return yaw_only.mag_get_yaw.yaw_filtered;
-
-    mx_h /= mag_h_norm;
-    my_h /= mag_h_norm;
-
-    float yaw_rad = atan2f(my_h, mx_h);
-    float yaw_deg = yaw_rad * 180.0f / PI;
-
-    yaw_deg += yaw_only.mag_get_yaw.mag_declination;
-
-    float yaw_mag = -yaw_deg;
-    while (yaw_mag > 180.0f) yaw_mag -= 360.0f;
-    while (yaw_mag < -180.0f) yaw_mag += 360.0f;
-
-    return -yaw_mag;
-}
 #endif
+
 
 #if DEFINE_IMU_ANALYSIS_MODE == 5
-//-------------------------------------------------------------------------------------------------------------------
-// 函数简介     Mahony AHRS Yaw-only算法
-//-------------------------------------------------------------------------------------------------------------------
-static float Mahony_YawOnly_Update(float dt)
-{
-    int16_t mag_x = 0;
-    int16_t mag_y = 0;
-    int16_t mag_z = 0;
 
-    float gx, gy, gz;
-    float ax, ay, az;
-    float recipNorm;
-
-    float q0 = yaw_only.mahony.q.q0;
-    float q1 = yaw_only.mahony.q.q1;
-    float q2 = yaw_only.mahony.q.q2;
-    float q3 = yaw_only.mahony.q.q3;
-
-    float q0q0, q0q1, q0q2, q0q3;
-    float q1q1, q1q2, q1q3;
-    float q2q2, q2q3;
-    float q3q3;
-
-    float vx, vy, vz;
-    float wx, wy, wz;
-    float hx, hy, bx, bz;
-    float ex, ey, ez;
-    float halfT;
-    float yaw_deg;
-    float kp;
-    float ki;
-
-    if (dt <= 1e-6f)
-    {
-        dt = 0.01f;
-    }
-
-    kp = imu_stable ? yaw_only.mahony.Kp : yaw_only.mahony.quick_Kp;
-    ki = imu_stable ? yaw_only.mahony.Ki : yaw_only.mahony.quick_Ki;
-
-    IMU_Mag_Apply(&mag_cal, &mag_x, &mag_y, &mag_z);
-    IMU_Acc_Apply(&ax, &ay, &az);  
-    gyro_data_process(&gx, &gy, &gz);
-    float mx = (float)mag_x;
-    float my = (float)mag_y;
-    float mz = (float)mag_z;
-
-    float declination_rad = yaw_only.mag_get_yaw.mag_declination * PI / 180.0f;
-    float mx_raw = mx;
-    float my_raw = my;
-    mx = mx_raw * cosf(declination_rad) - my_raw * sinf(declination_rad);
-    my = mx_raw * sinf(declination_rad) + my_raw * cosf(declination_rad);
-
-    recipNorm = invSqrt(ax * ax + ay * ay + az * az);
-    if (recipNorm < 1e-6f)
-    {
-        return Yaw_Result;
-    }
-    ax *= recipNorm;
-    ay *= recipNorm;
-    az *= recipNorm;
-
-    recipNorm = invSqrt(mx * mx + my * my + mz * mz);
-    if (recipNorm < 1e-6f)
-    {
-        return Yaw_Result;
-    }
-    mx *= recipNorm;
-    my *= recipNorm;
-    mz *= recipNorm;
-
-    q0q0 = q0 * q0;
-    q0q1 = q0 * q1;
-    q0q2 = q0 * q2;
-    q0q3 = q0 * q3;
-    q1q1 = q1 * q1;
-    q1q2 = q1 * q2;
-    q1q3 = q1 * q3;
-    q2q2 = q2 * q2;
-    q2q3 = q2 * q3;
-    q3q3 = q3 * q3;
-
-    vx = 2.0f * (q1q3 - q0q2);
-    vy = 2.0f * (q0q1 + q2q3);
-    vz = q0q0 - q1q1 - q2q2 + q3q3;
-
-    hx = 2.0f * (mx * (0.5f - q2q2 - q3q3) + my * (q1q2 - q0q3) + mz * (q1q3 + q0q2));
-    hy = 2.0f * (mx * (q1q2 + q0q3) + my * (0.5f - q1q1 - q3q3) + mz * (q2q3 - q0q1));
-    bx = sqrtf(hx * hx + hy * hy);
-    bz = 2.0f * (mx * (q1q3 - q0q2) + my * (q2q3 + q0q1) + mz * (0.5f - q1q1 - q2q2));
-
-    wx = 2.0f * bx * (0.5f - q2q2 - q3q3) + 2.0f * bz * (q1q3 - q0q2);
-    wy = 2.0f * bx * (q1q2 - q0q3) + 2.0f * bz * (q0q1 + q2q3);
-    wz = 2.0f * bx * (q0q2 + q1q3) + 2.0f * bz * (0.5f - q1q1 - q2q2);
-
-    ex = (ay * vz - az * vy) + (my * wz - mz * wy);
-    ey = (az * vx - ax * vz) + (mz * wx - mx * wz);
-    ez = (ax * vy - ay * vx) + (mx * wy - my * wx);
-
-    if (ki > 0.0f)
-    {
-        yaw_only.mahony.exInt += ex * ki * dt;
-        yaw_only.mahony.eyInt += ey * ki * dt;
-        yaw_only.mahony.ezInt += ez * ki * dt;
-    }
-    else
-    {
-        yaw_only.mahony.exInt = 0.0f;
-        yaw_only.mahony.eyInt = 0.0f;
-        yaw_only.mahony.ezInt = 0.0f;
-    }
-
-    gx += kp * ex + yaw_only.mahony.exInt;
-    gy += kp * ey + yaw_only.mahony.eyInt;
-    gz += kp * ez + yaw_only.mahony.ezInt;
-
-    halfT = 0.5f * dt;
-    q0 += (-q1 * gx - q2 * gy - q3 * gz) * halfT;
-    q1 += ( q0 * gx + q2 * gz - q3 * gy) * halfT;
-    q2 += ( q0 * gy - q1 * gz + q3 * gx) * halfT;
-    q3 += ( q0 * gz + q1 * gy - q2 * gx) * halfT;
-
-    recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
-    q0 *= recipNorm;
-    q1 *= recipNorm;
-    q2 *= recipNorm;
-    q3 *= recipNorm;
-
-    yaw_only.mahony.q.q0 = q0;
-    yaw_only.mahony.q.q1 = q1;
-    yaw_only.mahony.q.q2 = q2;
-    yaw_only.mahony.q.q3 = q3;
-
-    yaw_deg = atan2f(2.0f * (q1 * q2 + q0 * q3), q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3) * 180.0f / PI;
-
-    return yaw_deg;
-}
 #endif
+
 
 #if DEFINE_IMU_ANALYSIS_MODE == 6
-//-------------------------------------------------------------------------------------------------------------------
-// 函数简介     Madgwick AHRS Yaw-only算法
-//-------------------------------------------------------------------------------------------------------------------
-static float Madgwick_YawOnly_Update(float dt)
-{
-    float recipNorm;
-    float s0, s1, s2, s3;
-    float qDot1, qDot2, qDot3, qDot4;
-    float hx, hy;
-    float _2bx, _2bz, _4bx, _4bz;
-    float _2q0, _2q1, _2q2, _2q3, _2q0q2, _2q2q3;
-    float q0q1, q0q2, q0q3, q1q1, q1q2, q1q3, q2q2, q2q3, q3q3;
-    float yaw_deg;
-    float beta;
 
-    int16_t mag_x = 0;
-    int16_t mag_y = 0;
-    int16_t mag_z = 0;
-
-    float gx, gy, gz;
-    float ax, ay, az;
-    float q0 = yaw_only.madgwick.q.q0;
-    float q1 = yaw_only.madgwick.q.q1;
-    float q2 = yaw_only.madgwick.q.q2;
-    float q3 = yaw_only.madgwick.q.q3;
-
-    if (dt <= 1e-6f)
-    {
-        dt = 0.01f;
-    }
-
-    beta = imu_stable ? yaw_only.madgwick.beta : yaw_only.madgwick.quick_beta;
-
-    IMU_Mag_Apply(&mag_cal, &mag_x, &mag_y, &mag_z);
-    IMU_Acc_Apply(&ax, &ay, &az);
-    gyro_data_process(&gx, &gy, &gz);
-    float mx = (float)mag_x;
-    float my = (float)mag_y;
-    float mz = (float)mag_z;
-
-    float declination_rad = yaw_only.mag_get_yaw.mag_declination * PI / 180.0f;
-    float mx_raw = mx;
-    float my_raw = my;
-    mx = mx_raw * cosf(declination_rad) - my_raw * sinf(declination_rad);
-    my = mx_raw * sinf(declination_rad) + my_raw * cosf(declination_rad);
-
-    recipNorm = invSqrt(ax * ax + ay * ay + az * az);
-    if (recipNorm < 1e-6f)
-    {
-        return atan2f(2.0f * (q1 * q2 + q0 * q3), q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3) * 180.0f / PI;
-    }
-    ax *= recipNorm;
-    ay *= recipNorm;
-    az *= recipNorm;
-
-    recipNorm = invSqrt(mx * mx + my * my + mz * mz);
-    if (recipNorm < 1e-6f)
-    {
-        return atan2f(2.0f * (q1 * q2 + q0 * q3), q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3) * 180.0f / PI;
-    }
-    mx *= recipNorm;
-    my *= recipNorm;
-    mz *= recipNorm;
-
-    q0q1 = q0 * q1;
-    q0q2 = q0 * q2;
-    q0q3 = q0 * q3;
-    q1q1 = q1 * q1;
-    q1q2 = q1 * q2;
-    q1q3 = q1 * q3;
-    q2q2 = q2 * q2;
-    q2q3 = q2 * q3;
-    q3q3 = q3 * q3;
-
-    hx = 2.0f * (mx * (0.5f - q2q2 - q3q3) + my * (q1q2 - q0q3) + mz * (q1q3 + q0q2));
-    hy = 2.0f * (mx * (q1q2 + q0q3) + my * (0.5f - q1q1 - q3q3) + mz * (q2q3 - q0q1));
-    _2bx = sqrtf(hx * hx + hy * hy);
-    _2bz = 2.0f * (mx * (q1q3 - q0q2) + my * (q2q3 + q0q1) + mz * (0.5f - q1q1 - q2q2));
-
-    _2q0 = 2.0f * q0;
-    _2q1 = 2.0f * q1;
-    _2q2 = 2.0f * q2;
-    _2q3 = 2.0f * q3;
-    _2q0q2 = 2.0f * q0q2;
-    _2q2q3 = 2.0f * q2q3;
-    _4bx = 2.0f * _2bx;
-    _4bz = 2.0f * _2bz;
-
-    s0 = -_2q2 * (2.0f * q1q3 - _2q0q2 - ax)
-       + _2q1 * (2.0f * q0q1 + _2q2q3 - ay)
-       - _2bz * q2 * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - mx)
-       + (-_2bx * q3 + _2bz * q1) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - my)
-       + _2bx * q2 * (_2bx * (q0q2 + q1q3) + _2bz * (0.5f - q1q1 - q2q2) - mz);
-    s1 = _2q3 * (2.0f * q1q3 - _2q0q2 - ax)
-       + _2q0 * (2.0f * q0q1 + _2q2q3 - ay)
-       - 4.0f * q1 * (1.0f - 2.0f * q1q1 - 2.0f * q2q2 - az)
-       + _2bz * q3 * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - mx)
-       + (_2bx * q2 + _2bz * q0) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - my)
-       + (_2bx * q3 - _4bz * q1) * (_2bx * (q0q2 + q1q3) + _2bz * (0.5f - q1q1 - q2q2) - mz);
-    s2 = -_2q0 * (2.0f * q1q3 - _2q0q2 - ax)
-       + _2q3 * (2.0f * q0q1 + _2q2q3 - ay)
-       - 4.0f * q2 * (1.0f - 2.0f * q1q1 - 2.0f * q2q2 - az)
-       + (-_4bx * q2 - _2bz * q0) * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - mx)
-       + (_2bx * q1 + _2bz * q3) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - my)
-       + (_2bx * q0 - _4bz * q2) * (_2bx * (q0q2 + q1q3) + _2bz * (0.5f - q1q1 - q2q2) - mz);
-    s3 = _2q1 * (2.0f * q1q3 - _2q0q2 - ax)
-       + _2q2 * (2.0f * q0q1 + _2q2q3 - ay)
-       + (-_4bx * q3 + _2bz * q1) * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - mx)
-       + (-_2bx * q0 + _2bz * q2) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - my)
-       + _2bx * q1 * (_2bx * (q0q2 + q1q3) + _2bz * (0.5f - q1q1 - q2q2) - mz);
-
-    recipNorm = invSqrt(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3);
-    if (recipNorm >= 1e-6f)
-    {
-        s0 *= recipNorm;
-        s1 *= recipNorm;
-        s2 *= recipNorm;
-        s3 *= recipNorm;
-    }
-
-    qDot1 = 0.5f * (-q1 * gx - q2 * gy - q3 * gz) - beta * s0;
-    qDot2 = 0.5f * ( q0 * gx + q2 * gz - q3 * gy) - beta * s1;
-    qDot3 = 0.5f * ( q0 * gy - q1 * gz + q3 * gx) - beta * s2;
-    qDot4 = 0.5f * ( q0 * gz + q1 * gy - q2 * gx) - beta * s3;
-
-    q0 += qDot1 * dt;
-    q1 += qDot2 * dt;
-    q2 += qDot3 * dt;
-    q3 += qDot4 * dt;
-
-    recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
-    q0 *= recipNorm;
-    q1 *= recipNorm;
-    q2 *= recipNorm;
-    q3 *= recipNorm;
-
-    yaw_only.madgwick.q.q0 = q0;
-    yaw_only.madgwick.q.q1 = q1;
-    yaw_only.madgwick.q.q2 = q2;
-    yaw_only.madgwick.q.q3 = q3;
-
-    yaw_deg = atan2f(2.0f * (q1 * q2 + q0 * q3), q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3) * 180.0f / PI;
-
-    return yaw_deg;
-}
 #endif
+
 
 #if DEFINE_IMU_ANALYSIS_MODE == 7
-//-------------------------------------------------------------------------------------------------------------------
-// 函数简介     TiltMagYaw算法（重力投影磁修正陀螺积分）
-//-------------------------------------------------------------------------------------------------------------------
-static float TiltMagYaw_Update(float dt)
-{
-    int16_t mag_x = 0;
-    int16_t mag_y = 0;
-    int16_t mag_z = 0;
 
-    float gx, gy, gz;
-    float ax, ay, az;
-    float yaw_deg;
-    float kp, ki;
-
-    if (dt <= 1e-6f)
-    {
-        dt = 0.01f;
-    }
-
-    kp = imu_stable ? yaw_only.tilt_mag_yaw.kp : yaw_only.tilt_mag_yaw.quick_kp;
-    ki = imu_stable ? yaw_only.tilt_mag_yaw.ki : yaw_only.tilt_mag_yaw.quick_ki;
-
-    IMU_Mag_Apply(&mag_cal, &mag_x, &mag_y, &mag_z);
-    IMU_Acc_Apply(&ax, &ay, &az);
-    gyro_data_process(&gx, &gy, &gz);
-    float mx = (float)mag_x;
-    float my = (float)mag_y;
-    float mz = (float)mag_z;
-
-    float acc_norm = sqrtf(ax * ax + ay * ay + az * az);
-    float mag_norm = sqrtf(mx * mx + my * my + mz * mz);
-    float cos_roll, sin_roll, cos_pitch, sin_pitch;
-    float mx_level, my_level;
-    float yaw_mag;
-    float yaw_gyro_inc;
-    float yaw_error;
-
-    if (acc_norm > 1e-6f)
-    {
-        ax /= acc_norm;
-        ay /= acc_norm;
-        az /= acc_norm;
-    }
-
-    if (mag_norm > 1e-6f)
-    {
-        mx /= mag_norm;
-        my /= mag_norm;
-        mz /= mag_norm;
-    }
-
-    float pitch = -asinf(ax);
-    float roll = atan2f(ay, az);
-
-    cos_roll = cosf(roll);
-    sin_roll = sinf(roll);
-    cos_pitch = cosf(pitch);
-    sin_pitch = sinf(pitch);
-
-    mx_level = mx * cos_pitch + my * sin_roll * sin_pitch + mz * cos_roll * sin_pitch;
-    my_level = my * cos_roll - mz * sin_roll;
-
-    float declination_rad = yaw_only.tilt_mag_yaw.mag_declination * PI / 180.0f;
-    float mx_raw = mx_level;
-    float my_raw = my_level;
-    mx_level = mx_raw * cosf(declination_rad) - my_raw * sinf(declination_rad);
-    my_level = mx_raw * sinf(declination_rad) + my_raw * cosf(declination_rad);
-
-    yaw_mag = atan2f(my_level, mx_level);
-    yaw_mag = yaw_mag * 180.0f / PI;
-
-    while (yaw_mag > 180.0f) yaw_mag -= 360.0f;
-    while (yaw_mag < -180.0f) yaw_mag += 360.0f;
-
-    yaw_deg = yaw_only.tilt_mag_yaw.yaw;
-    yaw_gyro_inc = gz * 180.0f / PI * dt;
-    yaw_deg += yaw_gyro_inc;
-
-    while (yaw_deg > 180.0f) yaw_deg -= 360.0f;
-    while (yaw_deg < -180.0f) yaw_deg += 360.0f;
-
-    yaw_error = -yaw_mag - yaw_deg;
-    while (yaw_error > 180.0f) yaw_error -= 360.0f;
-    while (yaw_error < -180.0f) yaw_error += 360.0f;
-
-    yaw_only.tilt_mag_yaw.yaw_error_int += yaw_error * ki * dt;
-    yaw_deg += kp * yaw_error + yaw_only.tilt_mag_yaw.yaw_error_int;
-
-    while (yaw_deg > 180.0f) yaw_deg -= 360.0f;
-    while (yaw_deg < -180.0f) yaw_deg += 360.0f;
-
-    yaw_only.tilt_mag_yaw.yaw = yaw_deg;
-    yaw_only.tilt_mag_yaw.yaw_filtered = yaw_only.tilt_mag_yaw.yaw_filter_alpha * (-yaw_deg) +
-                                            (1.0f - yaw_only.tilt_mag_yaw.yaw_filter_alpha) * yaw_only.tilt_mag_yaw.yaw_filtered;
-
-    return yaw_only.tilt_mag_yaw.yaw_filtered;
-}
 #endif
-/*******************************************************************************************************************/
-/*------------------------------------------------------------------------------------------[E] 仅Yaw输出姿态解算 [E]*/
-/*******************************************************************************************************************/
 
 
-/*******************************************************************************************************************/
-/*[S] 姿态更新主函数 [S]---------------------------------------------------------------------------------------------*/
-/*******************************************************************************************************************/
 
 //-------------------------------------------------------------------------------------------------------------------
-// 函数简介     IMU姿态解算主函数
+// 函数简介     IMU姿态解算调用函数
 // 备注信息     在定时器中断中调用，根据DEFINE_IMU_ANALYSIS_MODE选择解算模式
 //-------------------------------------------------------------------------------------------------------------------
 void IMU_Update_Analysis(void)
@@ -1581,39 +876,34 @@ void IMU_Update_Analysis(void)
         Roll_Result = 0.0f;
         Pitch_Result = 0.0f;
     #elif DEFINE_IMU_ANALYSIS_MODE == 1
-        ThreeAxis_Update();
-    #elif DEFINE_IMU_ANALYSIS_MODE == 2
-        SixAxis_Update();
+
+    #elif DEFINE_IMU_ANALYSIS_MODE == 2// 六轴
+        IMU_getEulerianAngles();
     #elif DEFINE_IMU_ANALYSIS_MODE == 3
-        NineAxis_Update();
+
     #elif DEFINE_IMU_ANALYSIS_MODE == 4
-        Yaw_Result = Mag_Get_Yaw_Update();
-        Roll_Result = 0.0f;
-        Pitch_Result = 0.0f;
+
     #elif DEFINE_IMU_ANALYSIS_MODE == 5
-        Yaw_Result = Mahony_YawOnly_Update(DELTA_T_9AXIS);
-        Roll_Result = 0.0f;
-        Pitch_Result = 0.0f;
+
     #elif DEFINE_IMU_ANALYSIS_MODE == 6
-        Yaw_Result = Madgwick_YawOnly_Update(DELTA_T_9AXIS);
-        Roll_Result = 0.0f;
-        Pitch_Result = 0.0f;
+
     #elif DEFINE_IMU_ANALYSIS_MODE == 7
-        Yaw_Result = TiltMagYaw_Update(DELTA_T_9AXIS);
-        Roll_Result = 0.0f;
-        Pitch_Result = 0.0f;
+
     #endif
 
 }
+/*======================================================*/
+/**********************************************[姿态解算]*/
+/*======================================================*/
 
-/*******************************************************************************************************************/
-/*---------------------------------------------------------------------------------------------[E] 姿态更新主函数 [E]*/
-/*******************************************************************************************************************/
 
 
-/*******************************************************************************************************************/
-/*[S] 工具性函数 [S]------------------------------------------------------------------------------------------------*/
-/*******************************************************************************************************************/
+
+
+
+/*======================================================*/
+/*[外部调用工具性函数]**************************************/
+/*======================================================*/
 
 //-------------------------------------------------------------------------------------------------------------------
 // 函数简介     重置IMU姿态角数据
@@ -1635,58 +925,24 @@ void IMU_Reset_Data (void)
     #if   DEFINE_IMU_ANALYSIS_MODE == 0 
 
     #elif DEFINE_IMU_ANALYSIS_MODE == 1
-        three_axis.q.q0 = 1.0f;
-        three_axis.q.q1 = 0.0f;
-        three_axis.q.q2 = 0.0f;
-        three_axis.q.q3 = 0.0f;
-    #elif DEFINE_IMU_ANALYSIS_MODE == 2
-        six_axis.q.q0 = 1.0f;
-        six_axis.q.q1 = 0.0f;
-        six_axis.q.q2 = 0.0f;
-        six_axis.q.q3 = 0.0f;
-        six_axis.exInt = 0.0f;
-        six_axis.eyInt = 0.0f;
-        six_axis.ezInt = 0.0f;
-        six_axis.quick_mode = 1;
-    #elif DEFINE_IMU_ANALYSIS_MODE == 3
-        nine_axis.mahony.q.q0 = 1.0f;
-        nine_axis.mahony.q.q1 = 0.0f;
-        nine_axis.mahony.q.q2 = 0.0f;
-        nine_axis.mahony.q.q3 = 0.0f;
-        nine_axis.mahony.exInt = 0.0f;
-        nine_axis.mahony.eyInt = 0.0f;
-        nine_axis.mahony.ezInt = 0.0f;
-        nine_axis.mahony.quick_mode = 1;
-    #elif DEFINE_IMU_ANALYSIS_MODE == 4
-        yaw_only.mag_get_yaw.yaw_filtered = 0.0f;
-    #elif DEFINE_IMU_ANALYSIS_MODE == 5
-        yaw_only.mahony.q.q0 = 1.0f;
-        yaw_only.mahony.q.q1 = 0.0f;
-        yaw_only.mahony.q.q2 = 0.0f;
-        yaw_only.mahony.q.q3 = 0.0f;
-        yaw_only.mahony.exInt = 0.0f;
-        yaw_only.mahony.eyInt = 0.0f;
-        yaw_only.mahony.ezInt = 0.0f;
-        yaw_only.mahony.quick_mode = 1;
-    #elif DEFINE_IMU_ANALYSIS_MODE == 6
-        yaw_only.madgwick.q.q0 = 1.0f;
-        yaw_only.madgwick.q.q1 = 0.0f;
-        yaw_only.madgwick.q.q2 = 0.0f;
-        yaw_only.madgwick.q.q3 = 0.0f;
-    #elif DEFINE_IMU_ANALYSIS_MODE == 7
-        yaw_only.tilt_mag_yaw.yaw = 0.0f;
-        yaw_only.tilt_mag_yaw.yaw_filtered = 0.0f;
-        yaw_only.tilt_mag_yaw.yaw_error_int = 0.0f;
-    #endif
 
-    // 重置姿态结果
-    Yaw_Result = 0.0f;    // 偏航角（Yaw）
-    Roll_Result = 0.0f;   // 横滚角（Roll）
-    Pitch_Result = 0.0f;  // 俯仰角（Pitch）
+    #elif DEFINE_IMU_ANALYSIS_MODE == 2
+
+    #elif DEFINE_IMU_ANALYSIS_MODE == 3
+
+    #elif DEFINE_IMU_ANALYSIS_MODE == 4
+
+    #elif DEFINE_IMU_ANALYSIS_MODE == 5
+
+    #elif DEFINE_IMU_ANALYSIS_MODE == 6
+
+    #elif DEFINE_IMU_ANALYSIS_MODE == 7
+
+    #endif
 }
-/*******************************************************************************************************************/
-/*------------------------------------------------------------------------------------------------[E] 工具性函数 [E]*/
-/*******************************************************************************************************************/
+/*======================================================*/
+/**************************************[外部调用工具性函数]*/
+/*======================================================*/
 
 
 
