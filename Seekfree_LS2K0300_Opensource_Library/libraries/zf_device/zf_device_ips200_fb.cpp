@@ -45,9 +45,6 @@ void ips200_full(const uint16 color)
 
 void ips200_draw_point(uint16_t x, uint16_t y, const uint16_t color)
 {
-    if (screen_base == NULL) {
-        return; // 屏幕未初始化，直接返回
-    }
     screen_base[y * ips200_width + x] = color;
 }
 
@@ -326,4 +323,14 @@ void ips200_Printf(uint16 x, uint16 y, const char *format, ...)
     vsprintf(String, format, arg);
     va_end(arg);
     ips200_show_string(x, y, String);
+}
+
+// 设置画笔颜色
+void ips200_set_pen_color(uint16 color) {
+    ips200_pencolor = color;
+}
+
+// 设置背景颜色
+void ips200_set_bg_color(uint16 color) {
+    ips200_bgcolor = color;
 }

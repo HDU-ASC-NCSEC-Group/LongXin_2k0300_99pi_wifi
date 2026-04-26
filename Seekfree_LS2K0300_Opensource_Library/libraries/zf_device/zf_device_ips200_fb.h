@@ -23,5 +23,7 @@ void    ips200_Printf           (uint16 x, uint16 y, const char *format, ...);
 
 void    ips200_init             (const char *path);
 
+void ips200_set_pen_color(uint16 color);
+void ips200_set_bg_color(uint16 color);
 
 #endif

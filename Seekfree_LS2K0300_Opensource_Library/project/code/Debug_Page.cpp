@@ -7,6 +7,7 @@
 #include "zf_driver_file.h"
 
 #include "defines.h"
+#include "image_process.h"
 #include "IMU_Analysis.h"
 #include "Key.h"
 #include "Motor.h"
@@ -30,6 +31,7 @@ void Debug_Page_Menu_UI(uint8_t Page)
 			ips200_show_string(10 ,32 , "BUZ");
             ips200_show_string(10 ,48 , "MOTOR");
             ips200_show_string(10 ,64 , "IMU963RA");
+            ips200_show_string(10 ,80 , "UVC-QR");
 		
 			break;
 	}
@@ -100,19 +102,28 @@ void Debug_IMU963RA_UI(void)
         ips200_show_string(40 ,48 , "Yaw-4");
     #endif
 }
+
+// [三级界面]UVC摄像头的二维码识别调试界面
+void Debug_UVC_QR_UI(void)
+{
+    ips200_show_string(8  ,0  , "[DEBUG]-UVC-QR");
+    ips200_show_string(0  ,16 , "==============================");
+    // 下面的区域将被UVC回传的图像覆盖
+}
 /*******************************************************************************************************************/
 /*--------------------------------------------------------------------------------------------------[E] 菜单样式 [E]*/
 /*******************************************************************************************************************/
 
 
 /*******************************************************************************************************************/
-/*[S] 交互界面 [S]--------------------------------------------------------------------------------------------------*/
+/*[S] 界面逻辑 [S]--------------------------------------------------------------------------------------------------*/
 /*******************************************************************************************************************/
 
 // 相关函数提前声明
 int Debug_BUZ           (void);
 int Debug_MOTOR         (void);
 int Debug_IMU963RA      (void);
+int Debug_UVC_QR        (void);
 
 // [二级界面]Debug模式界面
 int Debug_Page_Menu(void)
@@ -136,13 +147,13 @@ int Debug_Page_Menu(void)
         {
             key_pressed = 1;
             Debug_Page_flag --;
-            if (Debug_Page_flag < 1)Debug_Page_flag = 3;
+            if (Debug_Page_flag < 1)Debug_Page_flag = 4;
         }
         else if (Key_Check(KEY_NAME_DOWN,KEY_SINGLE))
         {
             key_pressed = 1;
             Debug_Page_flag ++;
-            if (Debug_Page_flag > 3)Debug_Page_flag = 1;
+            if (Debug_Page_flag > 4)Debug_Page_flag = 1;
         }
         else if (Key_Check(KEY_NAME_CONFIRM,KEY_SINGLE))
         {
@@ -186,6 +197,16 @@ int Debug_Page_Menu(void)
             Debug_Page_Menu_UI(1);
             ips200_show_string(0  ,64 , ">");
         }
+        else if (Debug_Page_flag_temp == 4)
+        {
+            ips200_clear();
+            Debug_UVC_QR();
+            
+            // 从子界面返回后
+            ips200_clear();
+            Debug_Page_Menu_UI(1);
+            ips200_show_string(0  ,80 , ">");
+        }
         
 
         /* 显示更新*/
@@ -209,6 +230,12 @@ int Debug_Page_Menu(void)
                     ips200_clear();
                     Debug_Page_Menu_UI(1);
                     ips200_show_string(0  ,64 , ">");
+
+                    break;
+                case 4:
+                    ips200_clear();
+                    Debug_Page_Menu_UI(1);
+                    ips200_show_string(0  ,80 , ">");
 
                     break;
             }
@@ -672,6 +699,30 @@ int Debug_IMU963RA(void)
         ips200_Printf(184,144, "%.1f ", Pitch_Result);
     }
 }
+
+
+// #   #  #   #   ###          ###   ####   
+// #   #  #   #  #            #   #  #   #  
+// #   #  #   #  #      ###   #   #  ####   
+// #   #   # #   #            #  ##  #  #   
+//  ###     #     ###          ####  #   #  
+//
+// [三级界面]二维码调试
+int Debug_UVC_QR(void)
+{
+    Debug_UVC_QR_UI();
+
+    while(1)
+    {
+        if (Key_Check(KEY_NAME_BACK,KEY_SINGLE))
+        {
+            // 返回上一级界面
+            return 0;   
+        }
+        
+        QR_process();
+    }
+}
 /*******************************************************************************************************************/
-/*--------------------------------------------------------------------------------------------------[E] 交互界面 [E]*/
+/*--------------------------------------------------------------------------------------------------[E] 界面逻辑 [E]*/
 /*******************************************************************************************************************/
