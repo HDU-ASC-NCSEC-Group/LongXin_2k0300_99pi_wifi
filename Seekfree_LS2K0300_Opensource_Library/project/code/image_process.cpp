@@ -86,7 +86,7 @@ void QR_process(void)
     }
         
     // 可选：恢复默认颜色（如果不影响其他显示可以不恢复）
-    //ips200_set_pen_color(RGB565_RED);
+    // ips200_set_pen_color(RGB565_RED);
     // ips200_set_bg_color(IPS200_DEFAULT_BGCOLOR);
 }
 
