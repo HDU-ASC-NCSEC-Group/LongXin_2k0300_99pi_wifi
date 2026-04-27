@@ -32,6 +32,7 @@ void Debug_Page_Menu_UI(uint8_t Page)
             ips200_show_string(10 ,48 , "MOTOR");
             ips200_show_string(10 ,64 , "IMU963RA");
             ips200_show_string(10 ,80 , "UVC-QR");
+            ips200_show_string(10 ,96 , "UVC-TRACK");
 		
 			break;
 	}
@@ -110,6 +111,14 @@ void Debug_UVC_QR_UI(void)
     ips200_show_string(0  ,16 , "==============================");
     // 下面的区域将被UVC回传的图像覆盖
 }
+
+// [三级界面]UVC摄像头的跟踪调试界面
+void Debug_UVC_TRACK_UI(void)
+{
+    ips200_show_string(8  ,0  , "[DEBUG]-UVC-TRACK");
+    ips200_show_string(0  ,16 , "==============================");
+    // 下面的区域将被UVC回传的图像覆盖
+}
 /*******************************************************************************************************************/
 /*--------------------------------------------------------------------------------------------------[E] 菜单样式 [E]*/
 /*******************************************************************************************************************/
@@ -124,6 +133,8 @@ int Debug_BUZ           (void);
 int Debug_MOTOR         (void);
 int Debug_IMU963RA      (void);
 int Debug_UVC_QR        (void);
+int Debug_UVC_TRACK     (void);
+
 
 // [二级界面]Debug模式界面
 int Debug_Page_Menu(void)
@@ -147,13 +158,13 @@ int Debug_Page_Menu(void)
         {
             key_pressed = 1;
             Debug_Page_flag --;
-            if (Debug_Page_flag < 1)Debug_Page_flag = 4;
+            if (Debug_Page_flag < 1)Debug_Page_flag = 5;
         }
         else if (Key_Check(KEY_NAME_DOWN,KEY_SINGLE))
         {
             key_pressed = 1;
             Debug_Page_flag ++;
-            if (Debug_Page_flag > 4)Debug_Page_flag = 1;
+            if (Debug_Page_flag > 5)Debug_Page_flag = 1;
         }
         else if (Key_Check(KEY_NAME_CONFIRM,KEY_SINGLE))
         {
@@ -207,6 +218,16 @@ int Debug_Page_Menu(void)
             Debug_Page_Menu_UI(1);
             ips200_show_string(0  ,80 , ">");
         }
+        else if (Debug_Page_flag_temp == 5)
+        {
+            ips200_clear();
+            Debug_UVC_TRACK();
+            
+            // 从子界面返回后
+            ips200_clear();
+            Debug_Page_Menu_UI(1);
+            ips200_show_string(0  ,96 , ">");
+        }
         
 
         /* 显示更新*/
@@ -236,6 +257,12 @@ int Debug_Page_Menu(void)
                     ips200_clear();
                     Debug_Page_Menu_UI(1);
                     ips200_show_string(0  ,80 , ">");
+
+                    break;
+                case 5:
+                    ips200_clear();
+                    Debug_Page_Menu_UI(1);
+                    ips200_show_string(0  ,96 , ">");
 
                     break;
             }
@@ -701,11 +728,11 @@ int Debug_IMU963RA(void)
 }
 
 
-// #   #  #   #   ###          ###   ####   
+// #   #  #   #   ####         ###   ####   
 // #   #  #   #  #            #   #  #   #  
 // #   #  #   #  #      ###   #   #  ####   
 // #   #   # #   #            #  ##  #  #   
-//  ###     #     ###          ####  #   #  
+//  ###     #     ####         ####  #   #  
 //
 // [三级界面]二维码调试
 int Debug_UVC_QR(void)
@@ -716,11 +743,38 @@ int Debug_UVC_QR(void)
     {
         if (Key_Check(KEY_NAME_BACK,KEY_SINGLE))
         {
+            // 恢复默认颜色
+            ips200_set_pen_color(RGB565_RED);
             // 返回上一级界面
             return 0;   
         }
         
         QR_process();
+    }
+}
+
+// #   #  #   #   ####         #####  ####    ###    ####  #   #  
+// #   #  #   #  #               #    #   #  #   #  #      #  #   
+// #   #  #   #  #       ###     #    ####   #####  #      ###    
+// #   #   # #   #               #    #  #   #   #  #      #  #   
+//  ###     #     ####           #    #   #  #   #   ####  #   #  
+//
+// [三级界面]物块跟踪调试
+int Debug_UVC_TRACK(void)
+{
+    Debug_UVC_TRACK_UI();
+
+    while(1)
+    {
+        if (Key_Check(KEY_NAME_BACK,KEY_SINGLE))
+        {
+            // 恢复默认颜色
+            ips200_set_pen_color(RGB565_RED);
+            // 返回上一级界面
+            return 0;   
+        }
+        object_tracking();  // 红色物块跟踪显示
+//        coordinate_transformation();  // 坐标转换显示
     }
 }
 /*******************************************************************************************************************/

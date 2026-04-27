@@ -32,7 +32,6 @@
 ********************************************************************************************************************/
 
 #include "zf_common_headfile.h"
-#include "uart2.h"
 
 #include "defines.h"
 #include "Menu.h"
@@ -111,6 +110,6 @@ int main(int, char**)
 
     while(1)
     {
-//        Menu_Show();
+        Menu_Show();
     }
 }

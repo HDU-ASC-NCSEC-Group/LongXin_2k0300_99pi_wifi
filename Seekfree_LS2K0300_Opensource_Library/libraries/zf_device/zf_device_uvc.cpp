@@ -1,6 +1,5 @@
 #include "zf_device_uvc.h"
 
-
 #include <opencv2/imgproc/imgproc.hpp>  // for cv::cvtColor
 #include <opencv2/highgui/highgui.hpp> // for cv::VideoCapture
 #include <opencv2/opencv.hpp>
@@ -8,7 +7,6 @@
 #include <iostream> // for std::cerr
 #include <fstream>  // for std::ofstream
 #include <iostream>
-#include <opencv2/opencv.hpp>
 #include <thread>
 #include <chrono>
 #include <atomic>
@@ -19,6 +17,7 @@ cv::Mat frame_rgb;      // 构建opencv对象 彩色
 cv::Mat frame_rgay;     // 构建opencv对象 灰度
 
 uint8_t *rgay_image;    // 灰度图像数组指针
+uint8_t *rgb_image;     // 新增：彩色图像数组指针（BGR24格式）
 
 VideoCapture cap;
 
@@ -77,5 +76,27 @@ int8 wait_image_refresh()
     return 0;
 }
 
+// 新增函数：获取彩色图像，不进行灰度转换
+int8 wait_image_refresh_rgb()
+{
+    try 
+    {
+        // 阻塞式等待图像刷新
+        cap >> frame_rgb;
+        if (frame_rgb.empty()) 
+        {
+            std::cerr << "未获取到有效图像帧" << std::endl;
+            return -1;
+        }
+    } 
+    catch (const cv::Exception& e) 
+    {
+        std::cerr << "OpenCV 异常: " << e.what() << std::endl;
+        return -1;
+    }
 
+    // 直接指向彩色图像数据（BGR24格式）
+    rgb_image = frame_rgb.data;   // frame_rgb.data 是 uchar*，兼容 uint8_t*
 
+    return 0;
+}

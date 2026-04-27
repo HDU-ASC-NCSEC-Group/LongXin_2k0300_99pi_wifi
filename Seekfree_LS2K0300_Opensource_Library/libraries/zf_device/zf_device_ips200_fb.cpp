@@ -305,6 +305,22 @@ void ips200_init(const char *path)
 
 }
 
+void ips200_show_rgb_image(uint16 x, uint16 y, const uint8 *image, uint16 width, uint16 height)
+{
+    uint32 x_start, y_start;
+    for (y_start = y; y_start < y + height; ++y_start) {
+        for (x_start = x; x_start < x + width; ++x_start) {
+            // 获取像素的BGR值，假设image是BGR24，每个像素3字节，连续存储
+            const uint8 *pixel = image + ((x_start - x) + (y_start - y) * width) * 3;
+            uint8 b = pixel[0];
+            uint8 g = pixel[1];
+            uint8 r = pixel[2];
+            uint16 color = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+            ips200_draw_point(x_start, y_start, color);
+        }
+    }
+}
+
 //-------------------------------------------------------------------------------------------------------------------
 // 函数简介     IPS200 使用 printf 函数打印格式化字符串
 // 参数说明     x               坐标x方向的起点 参数范围 [0, ips200_x_max-1]
