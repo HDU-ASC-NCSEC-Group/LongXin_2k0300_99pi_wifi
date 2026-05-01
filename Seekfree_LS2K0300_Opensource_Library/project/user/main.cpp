@@ -36,6 +36,8 @@
 timer_fd *pit_timer_10ms;
 timer_fd *pit_timer_200ms;
 
+uint8_t number_task = 0;
+
 void pit_callback_10ms()
 {
     Key_Tick();
@@ -43,22 +45,30 @@ void pit_callback_10ms()
 
     ld_usart_task();            // 快速拉取所有可用字节并解包
 
-    if (g_lidar_frame_valid) {
-        // 打印一帧关键信息
-        printf("Radar: speed=%u rpm, angle %.2f->%.2f, ts=%u\n",
-               g_lidar_frame.speed,
-               g_lidar_frame.start_angle * 0.01f,
-               g_lidar_frame.end_angle * 0.01f,
-               g_lidar_frame.timestamp);
+    // if (g_lidar_frame_valid) {
+    //     // 打印一帧关键信息
+    //     printf("Radar: speed=%u rpm, angle %.2f->%.2f, ts=%u\n",
+    //            g_lidar_frame.speed,
+    //            g_lidar_frame.start_angle * 0.01f,
+    //            g_lidar_frame.end_angle * 0.01f,
+    //            g_lidar_frame.timestamp);
 
-        for (int i = 0; i < POINT_PER_PACK; i++) {
-            printf("  pt[%d]: %u mm, %u\n",
-                   i,
-                   g_lidar_frame.point[i].distance,
-                   g_lidar_frame.point[i].intensity);
-        }
+    //     for (int i = 0; i < POINT_PER_PACK; i++) {
+    //         printf("  pt[%d]: %u mm, %u\n",
+    //                i,
+    //                g_lidar_frame.point[i].distance,
+    //                g_lidar_frame.point[i].intensity);
+    //     }
 
-        g_lidar_frame_valid = false;
+    //     // g_lidar_frame_valid = false;
+    // }
+
+    data_process();    // 处理数据，提取前方 ±50° 范围内的点
+
+    number_task++;
+    if (number_task >= 10) {
+            number_task = 0;
+            avoid();            // 避障函数，计算避障角度并设置电机速度
     }
 }
 
@@ -107,7 +117,7 @@ int main(int, char**)
 
     while(1)
     {
-        Menu_Show();
+//        Menu_Show();
         // usleep(10000);  
     }
 }

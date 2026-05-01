@@ -11,13 +11,8 @@ static int uart_fd = -1;
 LiDARFrameTypeDef g_lidar_frame;
 volatile bool g_lidar_frame_valid = false;
 
-typedef struct {
-    float angle;            // 平均角度 (度)
-    uint16_t distance;      // 平均距离 (mm)
-} PointData_t;
-
-// 假设全局定义了 50 个元素的环形缓冲，供避障决策使用
-extern PointData_t PointDataProcess[50];
+// 环形缓冲区，存储50个点的数据
+PointData_t PointDataProcess[50];
 
 // CRC-8 表（与官方手册完全一致）
 static const uint8_t crc8_table[256] = {
@@ -201,19 +196,22 @@ void data_process(void)
 
     // 角度转换（原始数据单位 0.01°，除以 100 得到度）
     start_angle = g_lidar_frame.start_angle / 100.0f;
-    end_angle   = g_lidar_frame.end_angle   / 100.0f;
+    end_angle   = g_lidar_frame.end_angle  / 100.0f;
+
+    // start_angle = g_lidar_frame.start_angle;
+    // end_angle   = g_lidar_frame.end_angle;
 
     // 处理跨越 0° 的情况，保证 end_angle > start_angle
     if (start_angle > end_angle) {
         end_angle += 360.0f;
     }
-    area_angle = start_angle + (end_angle - start_angle) / 2.0f;
+    area_angle = (end_angle + start_angle) / 2.0f;
     if (area_angle >= 360.0f) {
         area_angle -= 360.0f;
     }
 
     // 只提取机器人前方 ±50° 范围内的点（对应 >220° 或 <320°）
-    if (area_angle > 220.0f || area_angle < 320.0f)
+    if (area_angle > 220.0f && area_angle < 320.0f)
     {
         // 累加所有 12 个测量点的距离
         for (i = 0; i < POINT_PER_PACK; i++) {
@@ -228,5 +226,5 @@ void data_process(void)
     }
 
     // 标记当前帧已处理完毕
-    g_lidar_frame_valid = false;
+    // g_lidar_frame_valid = false;
 }
