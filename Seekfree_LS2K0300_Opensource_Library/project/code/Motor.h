@@ -25,5 +25,9 @@ void    Motor_Init              (void);
 void    Motor_Set               (int num, int speed);
 void    Motor_Reset_ALL         (void);
 
+void    Motor_Move_Straight     (uint8_t speed);
+void    Motor_Spot_Left         (uint8_t speed);
+void    Motor_Spot_Right        (uint8_t speed);
+
 
 #endif

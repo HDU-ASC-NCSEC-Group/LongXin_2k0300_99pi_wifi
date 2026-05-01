@@ -14,6 +14,11 @@ typedef struct {
 } LidarPointStructDef;
 
 typedef struct {
+    float    angle;      // 平均角度（度）
+    uint16_t distance;   // 平均距离（mm）
+} PointData_t;
+
+typedef struct {
     uint8_t  header;
     uint8_t  ver_len;
     uint16_t speed;
@@ -27,8 +32,10 @@ typedef struct {
 
 extern LiDARFrameTypeDef g_lidar_frame;
 extern volatile bool g_lidar_frame_valid;
+extern PointData_t PointDataProcess[50]; // 环形缓冲区，存储50个点的数据
 
 bool ld_usart_init(const char *device, int baudrate);
 void ld_usart_task(void);
+void data_process(void);
 
 #endif

@@ -10,5 +10,8 @@ void Peripheral_Init(void);
 // 菜单调用
 void Menu_Show(void);
 
+extern uint8_t Mode_Flag;
+#define  IDLE_MODE          0
+#define  AVOID_MODE         1
 
 #endif

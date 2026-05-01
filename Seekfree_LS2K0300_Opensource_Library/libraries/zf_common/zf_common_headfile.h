@@ -137,7 +137,9 @@
 #include "Key.h"
 #include "ld_usart.h"
 #include "Motor.h"
+#include "navigate.h"
 #include "param_config.h"
+#include "pid.h"
 //===================================================用户自定义文件===================================================
 
 
