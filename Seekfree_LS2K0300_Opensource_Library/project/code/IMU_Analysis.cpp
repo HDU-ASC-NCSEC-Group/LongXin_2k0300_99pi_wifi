@@ -683,6 +683,9 @@ imu_param_t imu_data_t = {
 #define YAW_DEADZONE_THRESHOLD      0.00005f                                // Yaw角单次更新死区阈值
 #define DELTA_T                     0.0010055f                              // 六轴四元数采样时间
 
+// 比例系数
+#define YAW_SCALE                   1.1842f                                 // Yaw角的比例系数
+
 quater_param_t    Q_info = {1.0f, 0.0f, 0.0f, 0.0f};                        // 六轴位姿四元数
 
 float             param_Kp = 0.0001f;                                       // 加速度计收敛速率比例增益
@@ -760,6 +763,8 @@ void IMU_AHRSupdate(float gx, float gy, float gz, float ax, float ay, float az)
     gx = gx + param_Kp * ex + param_Ki * I_ex;
     gy = gy + param_Kp * ey + param_Ki * I_ey;
     gz = gz + param_Kp * ez + param_Ki * I_ez;
+
+    gz *= YAW_SCALE;
 
     q0 = q0 + (-q1 * gx - q2 * gy - q3 * gz) * halfT;
     q1 = q1 + (q0 * gx + q2 * gz - q3 * gy) * halfT;
