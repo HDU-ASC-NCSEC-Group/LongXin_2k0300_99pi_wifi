@@ -318,22 +318,20 @@ int Debug_MOTOR(void)
     ips200_show_string(0  ,32 , ">");
 
     // 出于特殊的设置，此处独立了速度的方向和大小的存储
-    // 电机14，23各为一对
     // 建议认定速度为0时方向为1
     uint16_t DUTY[4] = {0,0,0,0};
 
     // 电机偏移量
-    // 实际上，仍然电机14，23各为一对，只是方便写代码
-    int8_t OFFSET[4] = {0,0,0,0};
+    int16_t OFFSET[4] = {0,0,0,0};
 
     // 电机方向
     // 4个电机是独立方向的
     int8_t DIR[4] = {1,1,1,1};
 
-    ips200_Printf(50 ,32 , "%d   ", (DUTY[0] + OFFSET[0]) * DIR[0]);
-    ips200_Printf(50 ,48 , "%d   ", (DUTY[1] + OFFSET[1]) * DIR[1]);
-    ips200_Printf(50 ,64 , "%d   ", (DUTY[2] + OFFSET[2]) * DIR[2]);
-    ips200_Printf(50 ,80 , "%d   ", (DUTY[3] + OFFSET[3]) * DIR[3]);
+    ips200_Printf(50 ,32 , "%d    ", (DUTY[0] + OFFSET[0]) * DIR[0]);
+    ips200_Printf(50 ,48 , "%d    ", (DUTY[1] + OFFSET[1]) * DIR[1]);
+    ips200_Printf(50 ,64 , "%d    ", (DUTY[2] + OFFSET[2]) * DIR[2]);
+    ips200_Printf(50 ,80 , "%d    ", (DUTY[3] + OFFSET[3]) * DIR[3]);
     ips200_Printf(82 ,96 , "%d   ",OFFSET[0]); 
     ips200_Printf(82 ,112, "%d   ",OFFSET[1]); 
 
@@ -411,15 +409,15 @@ int Debug_MOTOR(void)
                 {
                     // 中间计算变量temp
                     int16_t temp = DIR[Debug_MOTOR_flag_temp - 1] * DUTY[Debug_MOTOR_flag_temp - 1];
-                    temp += 5;
+                    temp += 200;
                     // 边界处理
-                    if (temp > 100)
+                    if (temp > DUTY_MAX)
                     {
-                        temp = 100;
+                        temp = DUTY_MAX;
                     }
-                    else if (temp < -100)
+                    else if (temp < -DUTY_MAX)
                     {
-                        temp = -100;
+                        temp = -DUTY_MAX;
                     }
 
                     // 速度方向和大小数据更新
@@ -438,15 +436,15 @@ int Debug_MOTOR(void)
                 {
                     if (Debug_MOTOR_flag_temp == 5)
                     {
-                        OFFSET[0] ++;
-                        OFFSET[3] ++;
+                        OFFSET[0] += 50;
+                        OFFSET[3] += 50;
                         ips200_Printf(82 ,96 , "%d   ",OFFSET[0]); 
                         Motor_Set(1, (DUTY[0] + OFFSET[0]) * DIR[0]);
                     }
                     else if (Debug_MOTOR_flag_temp == 6)
                     {
-                        OFFSET[1] ++;
-                        OFFSET[2] ++;
+                        OFFSET[1] += 50;
+                        OFFSET[2] += 50;
                         ips200_Printf(82 ,112 , "%d   ",OFFSET[1]); 
                         Motor_Set(2, (DUTY[1] + OFFSET[1]) * DIR[1]);
                     }
@@ -462,15 +460,15 @@ int Debug_MOTOR(void)
                 {
                     // 中间计算变量temp
                     int16_t temp = DIR[Debug_MOTOR_flag_temp - 1] * DUTY[Debug_MOTOR_flag_temp - 1];
-                    temp -= 5;
+                    temp -= 200;
                     // 边界处理
-                    if (temp > 100)
+                    if (temp > DUTY_MAX)
                     {
-                        temp = 100;
+                        temp = DUTY_MAX;
                     }
-                    else if (temp < -100)
+                    else if (temp < -DUTY_MAX)
                     {
-                        temp = -100;
+                        temp = -DUTY_MAX;
                     }
 
                     // 速度方向和大小数据更新
@@ -490,15 +488,15 @@ int Debug_MOTOR(void)
                 {
                     if (Debug_MOTOR_flag_temp == 5)
                     {
-                        OFFSET[0] --;
-                        OFFSET[3] --;
+                        OFFSET[0] -= 50;
+                        OFFSET[3] -= 50;
                         ips200_Printf(82 ,96 , "%d   ",OFFSET[0]); 
                         Motor_Set(1, (DUTY[0] + OFFSET[0]) * DIR[0]);
                     }
                     else if (Debug_MOTOR_flag_temp == 6)
                     {
-                        OFFSET[1] --;
-                        OFFSET[2] --;
+                        OFFSET[1] -= 50;
+                        OFFSET[2] -= 50;
                         ips200_Printf(82 ,112 , "%d   ",OFFSET[1]); 
                         Motor_Set(2, (DUTY[1] + OFFSET[1]) * DIR[1]);
                     }
@@ -539,16 +537,16 @@ int Debug_MOTOR(void)
         {
             switch (Debug_MOTOR_flag_temp)
             {
-                case 1:DUTY[3] = DUTY[0];break;
-                case 2:DUTY[2] = DUTY[1];break;
-                case 3:DUTY[1] = DUTY[2];break;
-                case 4:DUTY[0] = DUTY[3];break;
+                case 1:DUTY[1] = DUTY[0];break;
+                case 2:DUTY[0] = DUTY[1];break;
+                case 3:DUTY[3] = DUTY[2];break;
+                case 4:DUTY[2] = DUTY[3];break;
                 default:break;
             }
-            ips200_Printf(50 ,32 , "%d   ", (DUTY[0] + OFFSET[0]) * DIR[0]); 
-            ips200_Printf(50 ,48 , "%d   ", (DUTY[1] + OFFSET[1]) * DIR[1]); 
-            ips200_Printf(50 ,64 , "%d   ", (DUTY[2] + OFFSET[2]) * DIR[2]); 
-            ips200_Printf(50 ,80 , "%d   ", (DUTY[3] + OFFSET[3]) * DIR[3]);
+            ips200_Printf(50 ,32 , "%d    ", (DUTY[0] + OFFSET[0]) * DIR[0]); 
+            ips200_Printf(50 ,48 , "%d    ", (DUTY[1] + OFFSET[1]) * DIR[1]); 
+            ips200_Printf(50 ,64 , "%d    ", (DUTY[2] + OFFSET[2]) * DIR[2]); 
+            ips200_Printf(50 ,80 , "%d    ", (DUTY[3] + OFFSET[3]) * DIR[3]);
         }
 
 

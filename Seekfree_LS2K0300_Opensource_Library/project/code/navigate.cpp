@@ -20,12 +20,6 @@ void avoid(void)
     uint8_t flag_avoid = 0; // 避障标志位，0不避障，1右，2左
     static uint16_t distance = 280; // 避障距离阈值，单位 mm
 
-    // 电机pwm相关变量
-    int16_t pwm_1 = 0;   
-    int16_t pwm_2 = 0;
-    int16_t pwm_3 = 0;
-    int16_t pwm_4 = 0;
-
     for(i = 0; i < 50; i ++)
     {
         if(0 < PointDataProcess[i].distance && PointDataProcess[i].distance < distance)
@@ -42,10 +36,7 @@ void avoid(void)
     // 不避障
     if(calculation_angle_cnt == 0)
     {
-        pwm_1 = 20;
-        pwm_2 = 20;
-        pwm_3 = pwm_2;
-        pwm_4 = pwm_1;
+        Motor_Move_Straight(20);
 
         flag_avoid = 0;
     }
@@ -56,30 +47,18 @@ void avoid(void)
         // 向右
         if((angle_sum/calculation_angle_cnt) > 0)
         {
-            pwm_1 = 15;
-            pwm_2 = 15;
-            pwm_3 = -pwm_2;
-            pwm_4 = -pwm_1;
+            Motor_Spot_Right(15);
 
             flag_avoid = 1;
         }
         // 向左
         else
         {
-            pwm_1 = -15;
-            pwm_2 = -15;
-            pwm_3 = -pwm_2;
-            pwm_4 = -pwm_1;
+            Motor_Spot_Left(15);
 
             flag_avoid = 2;
         }
     }
-
-    // 电机控制
-    Motor_Set(1, pwm_1);
-    Motor_Set(4, pwm_4);
-    Motor_Set(2, pwm_2);
-    Motor_Set(3, pwm_3);
 
     text_cnt = calculation_angle_cnt;
 	text_angle = angle_sum;
