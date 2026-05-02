@@ -183,8 +183,14 @@ int Avoid_Mode(void)
     {
         /* 按键处理*/
         if (Key_Check(KEY_NAME_BACK,KEY_SINGLE))
-        {
+        {   
+            // 停车
+            Motor_Reset_ALL();
+
             Mode_Flag = IDLE_MODE;
+
+            // 停车
+            Motor_Reset_ALL();
             // 返回上一级界面
             return 0;   
         }
