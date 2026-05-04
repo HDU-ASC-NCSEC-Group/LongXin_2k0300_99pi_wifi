@@ -85,6 +85,7 @@ int Avoid_Mode(void);
 
 void Menu_Show(void)
 {
+    ips200_clear();
     Menu_UI(1);
     ips200_show_string(0  ,32 , ">");
 

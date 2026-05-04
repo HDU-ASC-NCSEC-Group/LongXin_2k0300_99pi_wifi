@@ -67,29 +67,28 @@ void Debug_IMU963RA_UI(void)
     ips200_show_string(0  ,144, "Ro:#      Ya:#      Pi:#      ");
 
     // 0 关闭
-    // 1 三轴
-    // 2 [全欧拉角]六轴
-    // 3 九轴
-    // 4 [仅输出Yaw]Mag_Get_Yaw(仅磁力计+倾斜补偿)
-    // 5 [仅输出Yaw]Mahony AHRS(九轴)
-    // 6 [仅输出Yaw]Madgwick AHRS(九轴)
-    // 7 [仅输出Yaw]TiltMagYaw(重力投影磁修正陀螺积分)
+    // 1 [仅输出Yaw]三轴
+    // 2 [仅输出Yaw]六轴
+    // 3 [仅输出Yaw]九轴融合解算                -Mahony AHRS
+    // 4 [仅输出Yaw]只使用磁力计解算             -Magnetic Yaw
+    // 5 [仅输出Yaw]使用Madgwick融合解算        -Madgwick AHRS
+    // 6 [仅输出Yaw]使用重力投影磁修正陀螺积分    -Madgwick AHRS
     #if   DEFINE_IMU_ANALYSIS_MODE == 0 
         ips200_show_string(40 ,48 , "OFF");
     #elif DEFINE_IMU_ANALYSIS_MODE == 1
-        ips200_show_string(40 ,48 , "3Axis");
+        ips200_show_string(40 ,48 , "[Yaw]3Axis");
     #elif DEFINE_IMU_ANALYSIS_MODE == 2
-        ips200_show_string(40 ,48 , "6Axis");
+        ips200_show_string(40 ,48 , "[Yaw]6Axis");
     #elif DEFINE_IMU_ANALYSIS_MODE == 3
-        ips200_show_string(40 ,48 , "9Axis");
+        ips200_show_string(40 ,48 , "[Yaw]Mahony AHRS");
     #elif DEFINE_IMU_ANALYSIS_MODE == 4
-        ips200_show_string(40 ,48 , "Yaw-1");
+        ips200_show_string(40 ,48 , "[Yaw]Magnetic Yaw");
     #elif DEFINE_IMU_ANALYSIS_MODE == 5
-        ips200_show_string(40 ,48 , "Yaw-2");
+        ips200_show_string(40 ,48 , "[Yaw]Madgwick AHRS");
     #elif DEFINE_IMU_ANALYSIS_MODE == 6
-        ips200_show_string(40 ,48 , "Yaw-3");
+        ips200_show_string(40 ,48 , "[Yaw]TiltMagYaw");
     #elif DEFINE_IMU_ANALYSIS_MODE == 7
-        ips200_show_string(40 ,48 , "Yaw-4");
+        ips200_show_string(40 ,48 , "NaN");
     #endif
 }
 
