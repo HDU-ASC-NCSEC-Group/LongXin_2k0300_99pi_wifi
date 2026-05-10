@@ -82,9 +82,9 @@ float initial_yaw = 0.0f;              // 转向开始时的初始角度
 
 // ------------------ 角度位置PID结构体（单级） ------------------
 Angle_Position_PID angle_pos_pid = {
-    .Kp = 200.0f,       // 比例系数，需根据实际调试
+    .Kp = 1250.0f,       // 比例系数，需根据实际调试
     .Ki = 0.0f,       // 积分系数
-    .Kd = 0.5f,       // 微分系数
+    .Kd = 0.0f,       // 微分系数
 
     .OutMax = 7000.0f,    // 最大差速PWM输出
     .OutMin = -7000.0f,   // 最小差速PWM输出
@@ -93,7 +93,10 @@ Angle_Position_PID angle_pos_pid = {
 // ------------------ 内部PID计算 ------------------
 static void AnglePositionPID_Update(Angle_Position_PID *pid)
 {
+    // 计算角度误差，归一化到 [-180, 180]
     pid->error = pid->target - pid->actual;
+    while (pid->error > 180.0f)  pid->error -= 360.0f;
+    while (pid->error < -180.0f) pid->error += 360.0f;
 
     // 积分项（带限幅）
     if (pid->Ki != 0) {
@@ -104,13 +107,15 @@ static void AnglePositionPID_Update(Angle_Position_PID *pid)
             pid->error_integral = -pid->integral_max;
     }
 
-    // 微分项
+    // 微分项（也需归一化，防止yaw环绕时error跳变导致D项尖峰）
     float error_diff = pid->error - pid->last_error;
+    while (error_diff > 180.0f)  error_diff -= 360.0f;
+    while (error_diff < -180.0f) error_diff += 360.0f;
     pid->last_error = pid->error;
 
     // PID输出
-    pid->output = pid->Kp * pid->error 
-                + pid->Ki * pid->error_integral 
+    pid->output = pid->Kp * pid->error
+                + pid->Ki * pid->error_integral
                 + pid->Kd * error_diff;
 
     // 输出限幅
@@ -140,13 +145,13 @@ void Start_Angle_Turn(float angle)
 
     // 初始化位置PID目标
     angle_pos_pid.target = initial_yaw + angle;
-    if(angle_pos_pid.target > 180.0f) angle_pos_pid.target -= 360.0f;
-    else if(angle_pos_pid.target < -180.0f) angle_pos_pid.target += 360.0f;
+    while (angle_pos_pid.target > 180.0f)  angle_pos_pid.target -= 360.0f;
+    while (angle_pos_pid.target < -180.0f) angle_pos_pid.target += 360.0f;
     angle_pos_pid.actual = initial_yaw;
     angle_pos_pid.error = 0;
     angle_pos_pid.last_error = 0;
     angle_pos_pid.error_integral = 0;
-    angle_pos_pid.integral_max = 200.0f;   // 积分上限，可调
+    angle_pos_pid.integral_max = 100.0f;   // 积分上限，可调
 
     // 初始化差速为0，避免突变
     Apply_Differential_Steer(0.0f);
@@ -178,7 +183,7 @@ uint8_t Update_Angle_Turn(void)
 
     // 检查是否到达目标角度（带死区）
     float angle_error = fabsf(angle_pos_pid.target - Yaw_Result);
-    if (angle_error < 1.5f) {   // 1度误差内认为完成
+    if (angle_error < 1.0f) {   // 1度误差内认为完成
         Stop_Angle_Turn();
         return 1;               // 转向完成
     }

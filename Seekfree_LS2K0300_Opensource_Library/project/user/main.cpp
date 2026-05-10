@@ -91,6 +91,7 @@ void pit_callback_10ms()
 
     Motor_Output_Turn();
 
+    // yaw角测试
     printf("yaw:%.2f\n", Yaw_Result);
 }
 
@@ -145,6 +146,7 @@ int main(int, char**)
     pit_timer_200ms->start();
     
     static int8_t turn_flag = 0;
+    static int8_t last_turn_flag = 0;
 
     while(1)
     {
@@ -158,20 +160,18 @@ int main(int, char**)
             }
         }
 
-        if(turn_flag == 1)
+        // 仅在按键状态变化时触发一次转向
+        if(turn_flag != last_turn_flag)
         {
-            Start_Angle_Turn(30.0f);  // 右转90度
-        }
-        else if(turn_flag == 2)
-        {
-            Start_Angle_Turn(-30.0f); // 左转90度
-        }
-        else
-        {
-            Motor_Set(1,0);
-            Motor_Set(2,0);
-            Motor_Set(3,0);
-            Motor_Set(4,0);
+            last_turn_flag = turn_flag;
+            if(turn_flag == 1)
+            {
+                Start_Angle_Turn(30.0f);  // 右转30度
+            }
+            else if(turn_flag == 2)
+            {
+                Start_Angle_Turn(-30.0f); // 左转30度
+            }
         }
 
     }
