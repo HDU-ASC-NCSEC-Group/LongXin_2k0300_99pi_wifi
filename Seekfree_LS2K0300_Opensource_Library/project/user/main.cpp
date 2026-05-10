@@ -43,8 +43,8 @@ timer_fd *pit_timer;
 // 里面放入中断代码
 void pit_callback()
 {
-    imu963ra_get_acc();
-    imu963ra_get_gyro();
+    // imu963ra_get_acc();
+    // imu963ra_get_gyro();
     gyro_offset_get();
 
     ICM_AHRSupdate(imu963ra_gyro_x, imu963ra_gyro_y, imu963ra_gyro_z, imu963ra_acc_x, imu963ra_acc_y, imu963ra_acc_z);

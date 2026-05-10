@@ -4,12 +4,12 @@
 //-------------------------------------------------------------------------------------------------------------------
 //  宏定义
 //-------------------------------------------------------------------------------------------------------------------
-float CYCLE_T                       =0.001f;                               // 三轴四元数采样周期
-#define DELTA_T                     0.0010055f                              // 六轴四元数采样时间
-#define IMU_ALPHA                   0.3f                                    // 加速度低通滤波系数
-#define GYRO_STATIC_THRESHOLD       30.0f                                   // 原始角速度静止阈值
-#define GYRO_STATIC_CHECK_COUNT      100                                    // 采集前静止判定次数
-#define GYRO_OFFSET_SAMPLE_COUNT     2000                                   // 零漂采集次数
+float CYCLE_T                       =0.01f;                               // 三轴四元数采样周期
+#define DELTA_T                     0.01f                                 // 六轴四元数采样时间
+#define IMU_ALPHA                   0.3f                                   // 加速度低通滤波系数
+#define GYRO_STATIC_THRESHOLD       30.0f                                  // 原始角速度静止阈值
+#define GYRO_STATIC_CHECK_COUNT      100                                   // 采集前静止判定次数
+#define GYRO_OFFSET_SAMPLE_COUNT     2000                                  // 零漂采集次数
 #define PI                          3.14159265358979f
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -313,9 +313,9 @@ void imu_transform_gyro(void)
     if (gy_temp < GYRO_DEADZONE && gy_temp > -GYRO_DEADZONE) gy_temp = 0.0f;
     if (gz_temp < GYRO_DEADZONE && gz_temp > -GYRO_DEADZONE) gz_temp = 0.0f;
 
-    float gx = (gx_temp / 10 * 10) * PI / 180.0f;
-    float gy = (gy_temp / 10 * 10) * PI / 180.0f;
-    float gz = (gz_temp / 10 * 10) * PI / 180.0f;
+    float gx = imu963ra_gyro_transition(gx_temp / 10 * 10) * PI / 180.0f;
+    float gy = imu963ra_gyro_transition(gy_temp / 10 * 10) * PI / 180.0f;
+    float gz = imu963ra_gyro_transition(gz_temp / 10 * 10) * PI / 180.0f;
 
     // 暂存当前三轴四元数
     float q0 = q_3dof[0];
