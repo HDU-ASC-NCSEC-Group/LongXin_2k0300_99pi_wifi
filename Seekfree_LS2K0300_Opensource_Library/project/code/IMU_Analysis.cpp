@@ -687,7 +687,7 @@ float fast_sqrt(float x)
 /*[S] [仅输出Yaw]三轴 [S]-------------------------------------------------------------------------------------------*/
 /*******************************************************************************************************************/
 
-float CYCLE_T                       =0.001f;                              // 三轴四元数采样周期
+float CYCLE_T                       =0.01f;                              // 三轴四元数采样周期
 #define PI                          3.14159265358979f
 
 static float      q_3dof[4] = {1.0f, 0.0f, 0.0f, 0.0f};                     // 初始单位四元数（三轴解算专用）
@@ -709,9 +709,9 @@ void imu_transform_gyro(void)
     // 通过统一接口获取原始数据
     IMU_Gyro_Apply(&gyro_cal, &gx_temp, &gy_temp, &gz_temp);
 
-    float gx = (gx_temp / 10 * 10) * PI / 180.0f;
-    float gy = (gy_temp / 10 * 10) * PI / 180.0f;
-    float gz = (gz_temp / 10 * 10) * PI / 180.0f;
+    float gx = imu963ra_gyro_transition(gx_temp / 10 * 10) * PI / 180.0f;
+    float gy = imu963ra_gyro_transition(gy_temp / 10 * 10) * PI / 180.0f;
+    float gz = imu963ra_gyro_transition(gz_temp / 10 * 10) * PI / 180.0f;
 
     // 暂存当前三轴四元数
     float q0 = q_3dof[0];
