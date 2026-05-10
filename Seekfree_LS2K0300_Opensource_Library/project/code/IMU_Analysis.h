@@ -18,7 +18,7 @@
 // 4 [仅输出Yaw]只使用磁力计解算             -Magnetic Yaw
 // 5 [仅输出Yaw]使用Madgwick融合解算        -Madgwick AHRS
 // 6 [仅输出Yaw]使用重力投影磁修正陀螺积分    -Madgwick AHRS
-#define DEFINE_IMU_ANALYSIS_MODE       6
+#define DEFINE_IMU_ANALYSIS_MODE       1
 
 
 // 全局变量声明
@@ -27,11 +27,6 @@ extern volatile float Roll_Result;   // 横滚角（Roll）
 extern volatile float Pitch_Result;  // 俯仰角（Pitch）
 // IMU 通信+解析 使能标志位
 extern volatile uint8_t IMU_D_and_A_Enable;
-
-
-
-
-
 
 /*======================================================*/
 /*[数据读取]**********************************************/
@@ -42,9 +37,6 @@ void IMU_Update_Data(void);
 /*======================================================*/
 /**********************************************[数据读取]*/
 /*======================================================*/
-
-
-
 
 
 

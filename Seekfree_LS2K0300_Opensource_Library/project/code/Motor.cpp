@@ -145,3 +145,11 @@ void Motor_Spot_Right(uint16_t speed)
     Motor_Set(3, -speed);
     Motor_Set(4, -speed);
 }
+
+// 电机定角度转向函数
+void Motor_Output_Turn(void) {
+    Motor_Set(1, LeftPWM);
+    Motor_Set(2, LeftPWM);    
+    Motor_Set(3, RightPWM);
+    Motor_Set(4, RightPWM);
+}

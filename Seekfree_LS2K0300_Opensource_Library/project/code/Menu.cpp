@@ -25,18 +25,18 @@ void Peripheral_Init(void)
     Motor_Init();
 
     // IMU 初始化
-    imu_get_dev_info();
+    imu_get_dev_info(); 
 
-    // 初始化UVC摄像头
-    if(uvc_camera_init("/dev/video0") < 0)
-    {
-        printf("failed:UVC初始化失败");
-    }
+    // // 初始化UVC摄像头
+    // if(uvc_camera_init("/dev/video0") < 0)
+    // {
+    //     printf("failed:UVC初始化失败");
+    // }
 
-    if (!ld_usart_init("/dev/ttyUSB0", 230400))
-        {
-        printf("failed:USB0初始化失败");
-    }
+    // if (!ld_usart_init("/dev/ttyUSB0", 230400))
+    //     {
+    //     printf("failed:USB0初始化失败");
+    // }
 }
 
 /*******************************************************************************************************************/
@@ -195,9 +195,6 @@ int Avoid_Mode(void)
             // 返回上一级界面
             return 0;   
         }
-
-        
-
     }
 }
 /*******************************************************************************************************************/

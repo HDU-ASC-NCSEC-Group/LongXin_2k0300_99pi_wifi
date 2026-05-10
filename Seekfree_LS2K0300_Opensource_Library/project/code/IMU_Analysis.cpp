@@ -84,10 +84,6 @@ void IMU_Acc_Apply(float *ax, float *ay, float *az)
 /*======================================================*/
 
 
-
-
-
-
 /*======================================================*/
 /*[陀螺仪校准]********************************************/
 /*======================================================*/
@@ -197,20 +193,20 @@ void IMU_Gyro_Apply(Gyro_Calib_StructDef *cal, float *gx, float *gy, float *gz)
         *gy = (float)imu963ra_gyro_y - cal->offset_y;
         *gz = (float)imu963ra_gyro_z - cal->offset_z;
 
-        if (-7.0f <= *gx && *gx <= 7.0f){*gx = 0.0f;}
-        if (-7.0f <= *gy && *gy <= 7.0f){*gy = 0.0f;}
-        if (-7.0f <= *gz && *gz <= 7.0f){*gz = 0.0f;}
+        if (-7.0f < *gx && *gx < 7.0f){*gx = 0.0f;}
+        if (-7.0f < *gy && *gy < 7.0f){*gy = 0.0f;}
+        if (-7.0f < *gz && *gz < 7.0f){*gz = 0.0f;}
     }
     // 未校准时，应用默认的校准参数
     else
     {
-        *gx = (float)imu963ra_gyro_x - 4.7f;
-        *gy = (float)imu963ra_gyro_y + 8.1f;
-        *gz = (float)imu963ra_gyro_z + 6.9f;
+        *gx = (float)imu963ra_gyro_x - 5.67f;
+        *gy = (float)imu963ra_gyro_y + 9.15f;
+        *gz = (float)imu963ra_gyro_z + 7.51f;
 
-        if (-7.0f <= *gx && *gx <= 7.0f){*gx = 0.0f;}
-        if (-7.0f <= *gy && *gy <= 7.0f){*gy = 0.0f;}
-        if (-7.0f <= *gz && *gz <= 7.0f){*gz = 0.0f;}
+        if (-7.0f < *gx && *gx < 7.0f){*gx = 0.0f;}
+        if (-7.0f < *gy && *gy < 7.0f){*gy = 0.0f;}
+        if (-7.0f < *gz && *gz < 7.0f){*gz = 0.0f;}
     }
 }
 /*======================================================*/
@@ -713,9 +709,9 @@ void imu_transform_gyro(void)
     // 通过统一接口获取原始数据
     IMU_Gyro_Apply(&gyro_cal, &gx_temp, &gy_temp, &gz_temp);
 
-    float gx = gx_temp * PI / 180.0f;
-    float gy = gy_temp * PI / 180.0f;
-    float gz = gz_temp * PI / 180.0f;
+    float gx = (gx_temp / 10 * 10) * PI / 180.0f;
+    float gy = (gy_temp / 10 * 10) * PI / 180.0f;
+    float gz = (gz_temp / 10 * 10) * PI / 180.0f;
 
     // 暂存当前三轴四元数
     float q0 = q_3dof[0];
