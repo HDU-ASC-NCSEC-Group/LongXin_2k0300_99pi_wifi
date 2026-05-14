@@ -30,12 +30,17 @@ void Peripheral_Init(void)
     // 初始化UVC摄像头
     if(uvc_camera_init("/dev/video0") < 0)
     {
-        printf("failed:UVC初始化失败");
+        printf("failed:UVC初始化失败\n");
     }
 
     if (!ld_usart_init("/dev/ttyUSB0", 230400))
-        {
-        printf("failed:USB0初始化失败");
+    {
+        printf("failed:USB0初始化失败\n");
+    }
+
+    if (uart1_init("/dev/ttyS1", 115200))
+    {   
+        printf("failed:uart1串口初始化失败\n");
     }
 }
 
