@@ -713,9 +713,9 @@ void imu_transform_gyro(void)
     // 通过统一接口获取原始数据
     IMU_Gyro_Apply(&gyro_cal, &gx_temp, &gy_temp, &gz_temp);
 
-    float gx = gx_temp * PI / 180.0f;
-    float gy = gy_temp * PI / 180.0f;
-    float gz = gz_temp * PI / 180.0f;
+    float gx = (gx_temp / 10 * 10) * PI / 180.0f;
+    float gy = (gx_temp / 10 * 10) * PI / 180.0f;
+    float gz = (gx_temp / 10 * 10) * PI / 180.0f;
 
     // 暂存当前三轴四元数
     float q0 = q_3dof[0];
