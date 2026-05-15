@@ -47,12 +47,12 @@ void pit_callback_10ms()
     IMU_D_and_A_Enable = 1;
 
     /* IMU数据更新*/
-    if (IMU_D_and_A_Enable)
-    {
-        IMU_Update_Data();
-        IMU_Update_Analysis();
-        IMU_D_and_A_Enable = 0;
-    }
+    // if (IMU_D_and_A_Enable)
+    // {
+    //     IMU_Update_Data();
+    //     IMU_Update_Analysis();
+    //     IMU_D_and_A_Enable = 0;
+    // }
 
     ld_usart_task();            // 快速拉取所有可用字节并解包
 
@@ -88,11 +88,13 @@ void pit_callback_10ms()
                 avoid();            // 避障函数，计算避障角度并设置电机速度
         }
     }
-
     Motor_Output_Turn();
 
+    // uwb数据更新
+    uwb_usart_task();    // 快速拉取所有可用 UWB 字节并解包
+
     // yaw角测试
-    printf("yaw:%.2f\n", Yaw_Result);
+    //printf("yaw:%.2f\n", Yaw_Result);
 }
 
 void pit_callback_200ms()
@@ -115,6 +117,7 @@ void cleanup()
     pit_timer_200ms->stop();
 
     printf("程序退出，执行清理操作\n");
+    uwb_usart_close();
     Motor_Reset_ALL();
 }
 // 宣告程序退出函数
@@ -172,7 +175,7 @@ int main(int, char**)
             {
                 Start_Angle_Turn(-30.0f); // 左转30度
             }
-        }
+        }   
 
     }
 }

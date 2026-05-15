@@ -133,6 +133,7 @@ static void Apply_Differential_Steer(float diff_pwm)
 }
 
 // ------------------ 开始角度转向任务 ------------------
+// >0 右转（顺时针） <0 左转（逆时针）
 void Start_Angle_Turn(float angle)
 {
     if (is_angle_turning) {

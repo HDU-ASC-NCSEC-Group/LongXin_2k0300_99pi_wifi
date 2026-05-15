@@ -25,7 +25,7 @@ void Peripheral_Init(void)
     Motor_Init();
 
     // IMU 初始化
-    imu_get_dev_info(); 
+    //imu_get_dev_info(); 
 
     // // 初始化UVC摄像头
     // if(uvc_camera_init("/dev/video0") < 0)
@@ -37,6 +37,9 @@ void Peripheral_Init(void)
     //     {
     //     printf("failed:USB0初始化失败");
     // }
+
+    // uwb初始化
+    uwb_usart_init(UWB_UART_DEVICE, UWB_UART_BAUDRATE);
 }
 
 /*******************************************************************************************************************/
