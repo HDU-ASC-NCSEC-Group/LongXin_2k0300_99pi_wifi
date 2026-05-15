@@ -713,9 +713,9 @@ void imu_transform_gyro(void)
     // 通过统一接口获取原始数据
     IMU_Gyro_Apply(&gyro_cal, &gx_temp, &gy_temp, &gz_temp);
 
-    float gx = (gx_temp / 10 * 10) * PI / 180.0f;
-    float gy = (gx_temp / 10 * 10) * PI / 180.0f;
-    float gz = (gx_temp / 10 * 10) * PI / 180.0f;
+    float gx = imu963ra_gyro_transition(gx_temp / 10 * 10) * PI / 180.0f;
+    float gy = imu963ra_gyro_transition(gy_temp / 10 * 10) * PI / 180.0f;
+    float gz = imu963ra_gyro_transition(gz_temp / 10 * 10) * PI / 180.0f;
 
     // 暂存当前三轴四元数
     float q0 = q_3dof[0];
@@ -805,11 +805,7 @@ imu_param_t imu_data_t = {
 #define PI                          3.14159265358979f
 #define YAW_DEADZONE_THRESHOLD      0.00005f                                // Yaw角单次更新死区阈值
 #define DELTA_T                     0.0010055f                              // 六轴四元数采样时间
-
-// 比例系数
-//#define YAW_SCALE                   1.1842f                                 // Yaw角的比例系数
-#define YAW_SCALE                     1.1465f                                 // Yaw角的比例系数
-
+#define IMU_ALPHA                   0.3f                                    // 加速度低通滤波系数
 quater_param_t    Q_info = {1.0f, 0.0f, 0.0f, 0.0f};                        // 六轴位姿四元数
 
 float             param_Kp = 0.0001f;                                       // 加速度计收敛速率比例增益
@@ -870,8 +866,6 @@ void IMU_AHRSupdate(float gx, float gy, float gz, float ax, float ay, float az)
     gy = gy + param_Kp * ey + param_Ki * I_ey;
     gz = gz + param_Kp * ez + param_Ki * I_ez;
 
-    gz *= YAW_SCALE;
-
     q0 = q0 + (-q1 * gx - q2 * gy - q3 * gz) * halfT;
     q1 = q1 + (q0 * gx + q2 * gz - q3 * gy) * halfT;
     q2 = q2 + (q0 * gy - q1 * gz + q3 * gx) * halfT;
@@ -893,13 +887,21 @@ void IMU_AHRSupdate(float gx, float gy, float gz, float ax, float ay, float az)
 //-------------------------------------------------------------------------------------------------------------------
 void IMU_getEulerianAngles(void)
 {
-    IMU_Acc_Apply(&imu_data_t.acc_x, &imu_data_t.acc_y, &imu_data_t.acc_z);
-    IMU_Gyro_Apply(&gyro_cal, &imu_data_t.gyro_x, &imu_data_t.gyro_y, &imu_data_t.gyro_z);
+    float ax, ay, az;
+    float gx, gy, gz;
 
-     // 陀螺仪角速度转弧度
-    imu_data_t.gyro_x = (-imu_data_t.gyro_x) * PI / 180.0f;
-    imu_data_t.gyro_y = (imu_data_t.gyro_y) * PI / 180.0f;
-    imu_data_t.gyro_z = (-imu_data_t.gyro_z) * PI / 180.0f;
+    IMU_Acc_Apply(&ax, &ay, &az);
+    IMU_Gyro_Apply(&gyro_cal, &gx, &gy, &gz);
+
+    // 一阶低通滤波（加速度），数量级转换使用 imu963ra_acc_transition
+    imu_data_t.acc_x = (-imu963ra_acc_transition((float)ax)) * IMU_ALPHA + imu_data_t.acc_x * (1.0f - IMU_ALPHA);
+    imu_data_t.acc_y = ( imu963ra_acc_transition((float)ay)) * IMU_ALPHA + imu_data_t.acc_y * (1.0f - IMU_ALPHA);
+    imu_data_t.acc_z = (-imu963ra_acc_transition((float)az)) * IMU_ALPHA + imu_data_t.acc_z * (1.0f - IMU_ALPHA);
+
+    // 陀螺仪角速度转弧度，数量级转换使用 imu963ra_gyro_transition
+    imu_data_t.gyro_x = (-imu963ra_gyro_transition(gx)) * PI / 180.0f;
+    imu_data_t.gyro_y = ( imu963ra_gyro_transition(gy)) * PI / 180.0f;
+    imu_data_t.gyro_z = (-imu963ra_gyro_transition(gz)) * PI / 180.0f;
 
     IMU_AHRSupdate(imu_data_t.gyro_x, imu_data_t.gyro_y, imu_data_t.gyro_z, imu_data_t.acc_x, imu_data_t.acc_y, imu_data_t.acc_z);
 
@@ -1102,6 +1104,15 @@ static float Mahony_AHRS_Update(float dt)
     IMU_Gyro_Apply(&gyro_cal, &gx, &gy, &gz);
     IMU_Mag_Apply(&mag_cal, &mx, &my, &mz);
 
+    ax = imu963ra_acc_transition(ax);
+    ay = imu963ra_acc_transition(ay);
+    az = imu963ra_acc_transition(az);
+    gx = imu963ra_gyro_transition(gx / 10.0f * 10.0f) * 3.1415926535f / 180.0f;
+    gy = imu963ra_gyro_transition(gy / 10.0f * 10.0f) * 3.1415926535f / 180.0f;
+    gz = imu963ra_gyro_transition(gz / 10.0f * 10.0f) * 3.1415926535f / 180.0f;
+    mx = imu963ra_mag_transition(mx);
+    my = imu963ra_mag_transition(my);
+    mz = imu963ra_mag_transition(mz);
 
     float declination_rad = Mahony_ahrs.mag_declination * 3.1415926535f / 180.0f;
     float mx_raw = mx;
@@ -1262,17 +1273,22 @@ void Mag_Get_Yaw_Init(Mag_Get_Yaw_StructDef *imu)
 //-------------------------------------------------------------------------------------------------------------------
 static float Mag_Get_Yaw_Update(void)
 {
-    // 读取加速度计数据用于倾斜补偿
-    float ax;
-    float ay;
-    float az;
-    // 读取磁力计数据
-    int16_t mx;
-    int16_t my;
-    int16_t mz;
+    float ax, ay, az;
+    int16_t mag_x, mag_y, mag_z;
 
     IMU_Acc_Apply(&ax, &ay, &az);
-    IMU_Mag_Apply(&mag_cal, &mx, &my, &mz);
+
+    // 读取加速度计数据用于倾斜补偿
+    ax = imu963ra_acc_transition(ax);
+    ay = imu963ra_acc_transition(ay);
+    az = imu963ra_acc_transition(az);
+
+    IMU_Mag_Apply(&mag_cal, &mag_x, &mag_y, &mag_z);
+
+    // 读取磁力计数据
+    float mx = imu963ra_mag_transition(mag_x);
+    float my = imu963ra_mag_transition(mag_y);
+    float mz = imu963ra_mag_transition(mag_z);
 
     // 加速度计数据归一化
     float acc_norm = sqrtf(ax * ax + ay * ay + az * az);
@@ -1432,6 +1448,16 @@ static float Madgwick_AHRS_Update(float dt)
     IMU_Acc_Apply(&ax, &ay, &az);
     IMU_Gyro_Apply(&gyro_cal, &gx, &gy, &gz);
     IMU_Mag_Apply(&mag_cal, &mx, &my, &mz);
+
+    ax = imu963ra_acc_transition(ax);
+    ay = imu963ra_acc_transition(ay);
+    az = imu963ra_acc_transition(az);
+    gx = imu963ra_gyro_transition(gx / 10.0f * 10.0f) * 3.1415926535f / 180.0f;
+    gy = imu963ra_gyro_transition(gy / 10.0f * 10.0f) * 3.1415926535f / 180.0f;
+    gz = imu963ra_gyro_transition(gz / 10.0f * 10.0f) * 3.1415926535f / 180.0f;
+    mx = imu963ra_mag_transition(mx);
+    my = imu963ra_mag_transition(my);
+    mz = imu963ra_mag_transition(mz);
 
     if (dt > 1e-6f)
     {
@@ -1634,17 +1660,22 @@ void Mag_Get_Yaw_Init(Mag_Get_Yaw_StructDef *imu)
 //-------------------------------------------------------------------------------------------------------------------
 static float Mag_Get_Yaw_Update(void)
 {
-    // 读取加速度计数据用于倾斜补偿
-    float ax;
-    float ay;
-    float az;
-    // 读取磁力计数据
-    int16_t mx;
-    int16_t my;
-    int16_t mz;
+    float ax, ay, az;
+    int16_t mag_x, mag_y, mag_z;
 
     IMU_Acc_Apply(&ax, &ay, &az);
-    IMU_Mag_Apply(&mag_cal, &mx, &my, &mz);
+    
+    // 读取加速度计数据用于倾斜补偿
+    ax = imu963ra_acc_transition(ax);
+    ay = imu963ra_acc_transition(ay);
+    az = imu963ra_acc_transition(az);
+
+    IMU_Mag_Apply(&mag_cal, &mag_x, &mag_y, &mag_z);
+
+    // 读取磁力计数据
+    float mx = imu963ra_mag_transition(mag_x);
+    float my = imu963ra_mag_transition(mag_y);
+    float mz = imu963ra_mag_transition(mag_z);
 
     // 加速度计数据归一化
     float acc_norm = sqrtf(ax * ax + ay * ay + az * az);
@@ -1757,6 +1788,14 @@ static float TiltMagYaw_Update(float dt)
     IMU_Acc_Apply(&ax, &ay, &az);
     IMU_Gyro_Apply(&gyro_cal, &gx, &gy, &gz);
 
+    // 读取并转换传感器数据
+    ax = imu963ra_acc_transition(ax);
+    ay = imu963ra_acc_transition(ay);
+    az = imu963ra_acc_transition(az);
+    gx = imu963ra_gyro_transition(gx / 10.0f * 10.0f) * 3.1415926535f / 180.0f;
+    gy = imu963ra_gyro_transition(gy / 10.0f * 10.0f) * 3.1415926535f / 180.0f;
+    gz = imu963ra_gyro_transition(gz / 10.0f * 10.0f) * 3.1415926535f / 180.0f;
+
     // 仅用于评估加速度计质量，避免剧烈机动时过度依赖磁力计
     float acc_norm_raw = sqrtf(ax * ax + ay * ay + az * az);
     if (acc_norm_raw < 1e-6f) acc_norm_raw = 1.0f;
@@ -1788,9 +1827,9 @@ static float TiltMagYaw_Update(float dt)
     float yaw_mag = Mag_Get_Yaw_Update();
 
     // 快速磁力计可用性检查，仅用于决定是否进行磁修正
-    float mx_raw = imu963ra_mag_x;
-    float my_raw = imu963ra_mag_y;
-    float mz_raw = imu963ra_mag_z;
+    float mx_raw = imu963ra_mag_transition(imu963ra_mag_x);
+    float my_raw = imu963ra_mag_transition(imu963ra_mag_y);
+    float mz_raw = imu963ra_mag_transition(imu963ra_mag_z);
     float mag_norm_raw = sqrtf(mx_raw * mx_raw + my_raw * my_raw + mz_raw * mz_raw);
     uint8_t mag_valid = (mag_norm_raw > 1e-6f) ? 1 : 0;
 
