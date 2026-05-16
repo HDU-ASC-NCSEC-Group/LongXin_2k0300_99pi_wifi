@@ -39,9 +39,15 @@
 //==================================================UWB 串口配置===================================================
 
 #define UWB_UART_DEVICE         "/dev/ttyUSB0"
-#define UWB_UART_BAUDRATE       115200
+#define UWB_UART_BAUDRATE       115200      // 波特率数值（非 Bxxx 常量，用于 termios2 BOTHER 模式）
 #define UWB_RX_BUF_SIZE         128
 #define UWB_RX_DLY_MAX          50
+
+//==================================================UWB 数据校准====================================================
+
+#define UWB_DIST_SCALE          10.81f       // 距离比例因子 (raw * scale + offset = 校正值)
+#define UWB_DIST_OFFSET_MM      16.26f         // 距离补偿偏移 (mm)，正数=增加输出值
+#define UWB_FILTER_ALPHA        0.25f       // EMA 滤波系数 (0.0~1.0)，越小越平滑
 
 //==================================================UWB 接收状态宏==================================================
 
@@ -77,13 +83,17 @@ typedef struct __attribute__((packed))
 
 typedef struct
 {
-    int32  distance;            // 距离 (mm)
-    float  azimuth_deg;         // 方位角 (度)
-    float  elevation_deg;       // 仰角 (度)
+    int32  distance;            // 原始距离 (mm)，直接来自帧数据
+    float  azimuth_deg;         // 原始方位角 (度)
+    float  elevation_deg;       // 原始仰角 (度)
     uint32 tag_id;              // 标签 ID
     uint32 anchor_id;           // 基站 ID
     uint8  data_valid;          // 数据有效标志 非零有效
     uint32 timestamp;           // 最后更新时间戳
+
+    float  distance_m;          // 滤波后距离 (米)，已含比例+偏移校准
+    float  azimuth_f;           // 滤波后方位角 (度)
+    float  elevation_f;         // 滤波后仰角 (度)
 } UWB_Data;
 
 //==================================================UWB 接收控制结构体===============================================

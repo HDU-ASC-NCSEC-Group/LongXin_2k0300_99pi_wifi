@@ -38,10 +38,18 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <termios.h>
 #include <errno.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
+#include <asm/termbits.h>
+
+// <termios.h> conflicts with <asm/termbits.h> on LoongArch (both define struct termios).
+// We only need tcflush / TCIOFLUSH from termios.h, so declare them manually.
+#ifndef TCIOFLUSH
+#define TCIOFLUSH 2
+#endif
+extern "C" int tcflush(int, int);
 
 //==================================================内部数据定义====================================================
 
@@ -57,12 +65,19 @@ typedef union
 
 static UWB_RawBuf       g_uwb_buf;
 
+// EMA 滤波状态
+static float            g_ema_dist_m  = 0.0f;
+static float            g_ema_azim    = 0.0f;
+static float            g_ema_elev    = 0.0f;
+static uint8            g_ema_init    = 0;
+
 //==================================================内部函数声明====================================================
 
 static void process_byte   (uint8 byte);
 static void parse_frame    (void);
 static void reset_rx_ctrl  (void);
 static int  ser_available  (void);
+static void dump_raw_frame (void);
 
 //==================================================字节序转换======================================================
 // UWB 模块数据为大端序，LS2K0300 为小端序
@@ -113,7 +128,6 @@ static void process_byte(uint8 byte)
         (g_uwb_rx.rx_status != UWB_UART_RECVING))
         return;
 
-    // 写入接收缓冲区
     g_uwb_buf.raw[g_uwb_rx.rx_num++] = byte;
     g_uwb_rx.rx_time = UWB_RX_DLY_MAX;
     g_uwb_rx.rx_status = UWB_UART_RECVING;
@@ -143,16 +157,16 @@ static void process_byte(uint8 byte)
 
         if (g_uwb_rx.inc_num == 5)
         {
-            g_uwb_rx.command = byte;       // 命令字高字节
+            g_uwb_rx.command = byte;
         }
 
         if (g_uwb_rx.inc_num == 6)
         {
-            g_uwb_rx.command = (g_uwb_rx.command << 8) | byte; // 命令字低字节
+            g_uwb_rx.command = (g_uwb_rx.command << 8) | byte;
 
             if (g_uwb_rx.command == UWB_CMD_DIST_AZIMUTH)
             {
-                g_uwb_rx.inc_limit = 33;   // 此命令固定 33 字节载荷 (总帧长 37)
+                g_uwb_rx.inc_limit = 33;
             }
         }
 
@@ -169,29 +183,63 @@ static void process_byte(uint8 byte)
     }
 }
 
+static void dump_raw_frame(void)
+{
+    printf("[UWB RAW] %u bytes:", g_uwb_rx.rx_num);
+    for (uint16 i = 0; i < g_uwb_rx.rx_num && i < 37; i++)
+    {
+        if (i % 16 == 0) printf("\r\n  ");
+        printf("%02X ", g_uwb_buf.raw[i]);
+    }
+    printf("\r\n");
+}
+
 static void parse_frame(void)
 {
     if (g_uwb_rx.command != UWB_CMD_DIST_AZIMUTH)
         return;
 
-    // 校验帧长 (37 bytes)
     if (g_uwb_rx.rx_num < 37)
         return;
 
-    // 提取并转换关键数据（大端序 → 小端序）
     int32  dist   = (int32)uwb_byte_swap32(g_uwb_buf.item.distance);
     int16  azim   = (int16)uwb_byte_swap16((uint16)g_uwb_buf.item.azimuth);
     int16  elev   = (int16)uwb_byte_swap16((uint16)g_uwb_buf.item.elevation);
     uint32 tag_id = uwb_byte_swap32(g_uwb_buf.item.tag_id);
     uint32 anc_id = uwb_byte_swap32(g_uwb_buf.item.anchor_id);
 
+    // 原始数据（不做校准）
     g_uwb_data.distance      = dist;
     g_uwb_data.azimuth_deg   = (float)azim * 0.01f;
     g_uwb_data.elevation_deg = (float)elev * 0.01f;
     g_uwb_data.tag_id        = tag_id;
     g_uwb_data.anchor_id     = anc_id;
-    g_uwb_data.data_valid    = 1;
-    g_uwb_data.timestamp     = 0;   // 由调用方按需填入 tick
+
+    // 校准：corrected = raw * scale + offset
+    float raw_dist_m = ((float)dist * UWB_DIST_SCALE + (float)UWB_DIST_OFFSET_MM) * 0.001f;
+    float raw_azim   = g_uwb_data.azimuth_deg;
+    float raw_elev   = g_uwb_data.elevation_deg;
+
+    // EMA 低通滤波
+    if (!g_ema_init)
+    {
+        g_ema_dist_m = raw_dist_m;
+        g_ema_azim   = raw_azim;
+        g_ema_elev   = raw_elev;
+        g_ema_init   = 1;
+    }
+    else
+    {
+        g_ema_dist_m = UWB_FILTER_ALPHA * raw_dist_m + (1.0f - UWB_FILTER_ALPHA) * g_ema_dist_m;
+        g_ema_azim   = UWB_FILTER_ALPHA * raw_azim   + (1.0f - UWB_FILTER_ALPHA) * g_ema_azim;
+        g_ema_elev   = UWB_FILTER_ALPHA * raw_elev   + (1.0f - UWB_FILTER_ALPHA) * g_ema_elev;
+    }
+
+    g_uwb_data.distance_m  = g_ema_dist_m;
+    g_uwb_data.azimuth_f   = g_ema_azim;
+    g_uwb_data.elevation_f = g_ema_elev;
+    g_uwb_data.data_valid  = 1;
+    g_uwb_data.timestamp   = 0;
 }
 
 //==================================================外部 API=========================================================
@@ -204,6 +252,7 @@ void uwb_usart_init(const char *device, uint32 baudrate)
     reset_rx_ctrl();
     memset(&g_uwb_data, 0, sizeof(g_uwb_data));
     memset(&g_uwb_buf,  0, sizeof(g_uwb_buf));
+    g_ema_init = 0;
 
     g_uwb_fd = open(device, O_RDWR | O_NOCTTY | O_NDELAY);
     if (g_uwb_fd < 0)
@@ -212,32 +261,58 @@ void uwb_usart_init(const char *device, uint32 baudrate)
         return;
     }
 
-    struct termios opt;
-    tcgetattr(g_uwb_fd, &opt);
+    // 使用 termios2 + TCSETS2 设置波特率
+    // LS2K0300 的 termios 不含 c_ispeed/c_ospeed，cfsetispeed(B115200) 会
+    // 因 CBAUD 位宽不足返回 EINVAL。termios2 通过 BOTHER 模式支持任意整数波特率。
+    struct termios2 tio;
+    memset(&tio, 0, sizeof(tio));
 
-    cfsetispeed(&opt, baudrate);
-    cfsetospeed(&opt, baudrate);
+    if (ioctl(g_uwb_fd, TCGETS2, &tio) != 0)
+    {
+        printf("[UWB] TCGETS2 get failed: %s\r\n", strerror(errno));
+        close(g_uwb_fd);
+        g_uwb_fd = -1;
+        return;
+    }
 
-    opt.c_cflag |=  (CLOCAL | CREAD);
-    opt.c_cflag &= ~(PARENB | CSTOPB | CSIZE);
-    opt.c_cflag |=  CS8;
-    opt.c_cflag &= ~CRTSCTS;
+    // 原始模式
+    tio.c_iflag = 0;
+    tio.c_oflag = 0;
+    tio.c_lflag = 0;
+    tio.c_cflag = CS8 | CLOCAL | CREAD;
+    tio.c_cflag &= ~(PARENB | CSTOPB | CRTSCTS);
 
-    opt.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-    opt.c_oflag &= ~OPOST;
-    opt.c_iflag &= ~(IXON | IXOFF | IXANY | ICRNL);
+    // BOTHER 模式：c_ispeed/c_ospeed 为直接整数波特率
+    tio.c_cflag &= ~CBAUD;
+    tio.c_cflag |= BOTHER;
+    tio.c_ispeed = baudrate;
+    tio.c_ospeed = baudrate;
 
-    opt.c_cc[VMIN]  = 0;
-    opt.c_cc[VTIME] = 0;
+    tio.c_cc[VMIN]  = 0;
+    tio.c_cc[VTIME] = 0;
 
-    tcsetattr(g_uwb_fd, TCSANOW, &opt);
     tcflush(g_uwb_fd, TCIOFLUSH);
 
-    // 设为非阻塞
-    int flags = fcntl(g_uwb_fd, F_GETFL, 0);
-    fcntl(g_uwb_fd, F_SETFL, flags | O_NONBLOCK);
+    if (ioctl(g_uwb_fd, TCSETS2, &tio) != 0)
+    {
+        printf("[UWB] TCSETS2 set failed: %s\r\n", strerror(errno));
+        close(g_uwb_fd);
+        g_uwb_fd = -1;
+        return;
+    }
 
-    printf("[UWB] init ok, dev=%s baud=%u\r\n", device, baudrate);
+    // 回读验证
+    struct termios2 verify;
+    memset(&verify, 0, sizeof(verify));
+    if (ioctl(g_uwb_fd, TCGETS2, &verify) == 0)
+    {
+        printf("[UWB] init ok, dev=%s baud=%u actual_in=%u actual_out=%u\r\n",
+               device, baudrate, verify.c_ispeed, verify.c_ospeed);
+    }
+    else
+    {
+        printf("[UWB] init ok, dev=%s baud=%u (verify failed)\r\n", device, baudrate);
+    }
 }
 
 void uwb_usart_task(void)
@@ -267,13 +342,21 @@ void uwb_usart_task(void)
         parse_frame();
         reset_rx_ctrl();
 
-        // 打印解析结果
         if (g_uwb_data.data_valid)
         {
-            printf("Dist=%.2fm Azi=%.2fdeg Elev=%.2fdeg\r\n",
-                   (float)g_uwb_data.distance * 0.001f,
+            // 原始距离 (mm) 和校准后距离 (m)
+            printf("[UWB] Tag=%u Anc=%u "
+                   "raw=%dmm cal=%.2fm filt=%.2fm "
+                   "azi=%.1f/%.1f elev=%.1f/%.1f\r\n",
+                   g_uwb_data.tag_id,
+                   g_uwb_data.anchor_id,
+                   g_uwb_data.distance,
+                   ((float)g_uwb_data.distance * UWB_DIST_SCALE + (float)UWB_DIST_OFFSET_MM) * 0.001f,
+                   g_uwb_data.distance_m,
                    g_uwb_data.azimuth_deg,
-                   g_uwb_data.elevation_deg);
+                   g_uwb_data.azimuth_f,
+                   g_uwb_data.elevation_deg,
+                   g_uwb_data.elevation_f);
             g_uwb_data.data_valid = 0;
         }
     }
@@ -285,6 +368,7 @@ void uwb_usart_close(void)
     {
         close(g_uwb_fd);
         g_uwb_fd = -1;
+        g_ema_init = 0;
         printf("[UWB] closed\r\n");
     }
 }
