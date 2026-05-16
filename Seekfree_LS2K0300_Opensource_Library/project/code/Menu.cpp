@@ -38,6 +38,7 @@ void Peripheral_Init(void)
         printf("failed:USB0初始化失败\n");
     }
 
+    // UART1串口
     if (uart1_init("/dev/ttyS1", 115200))
     {   
         printf("failed:uart1串口初始化失败\n");
