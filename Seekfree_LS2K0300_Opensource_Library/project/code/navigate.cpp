@@ -204,3 +204,179 @@ float Get_Angle_Turn_Error(void)
 {
     return angle_pos_pid.error;
 }
+
+//====================================================================================
+
+//------------------------------------------------------------------------------------
+// 函数简介     UWB 信标跟随 + 雷达避障
+// 使用示例     在 10ms 定时中断中调用 uwb_follow();
+// 备注信息
+//   跟随算法采用差速转向：
+//   - 标签在左侧 (azimuth < 0) → 左轮减速 → 车向左转
+//   - 标签在右侧 (azimuth > 0) → 右轮减速 → 车向右转
+//   - 修正量 = |azimuth| × FOLLOW_TURN_GAIN
+//
+//   避障优先级 > 跟随优先级：
+//   - 障碍物 < 200mm → 紧急原地转向
+//   - 障碍物 200~400mm → 减速偏转绕行
+//   - 无障碍物 → 纯 UWB 跟随
+//
+//   安全保护：
+//   - 距离 > FOLLOW_MAX_DIST_M → 停机
+//   - 距离 < FOLLOW_MIN_DIST_M → 停机
+//------------------------------------------------------------------------------------
+
+void uwb_follow(void)
+{
+    static uint16_t  uwb_timeout_cnt   = 0;      // UWB 数据超时计数
+    static uint32_t   last_frame_count  = 0;     // 上一次的帧序号，用于检测数据刷新
+    static uint8_t    dbg_tick          = 0;     // 调试打印节拍
+
+    int16_t follow_pwm_L = 0;
+    int16_t follow_pwm_R = 0;
+
+    // 读取uwb数据
+    float dist_m = g_uwb_data.distance_m;              // 滤波后距离（单位：m）
+    float   azim_deg = g_uwb_data.azimuth_f;           // 滤波后方位角 (度)
+    int32_t   dist_raw = g_uwb_data.distance;          // 原始距离 (mm)
+
+    //uwb数据刷新与超时检测
+    if(g_uwb_frame_count != last_frame_count)
+    {
+        last_frame_count = g_uwb_frame_count;
+        uwb_timeout_cnt = 0;   // 数据刷新，重置超时计数
+    }
+    else
+    {
+        uwb_timeout_cnt ++;
+    }
+
+    if (uwb_timeout_cnt > FOLLOW_UWB_TIMEOUT_CNT) {
+        Motor_Reset_ALL();
+        if (uwb_timeout_cnt == FOLLOW_UWB_TIMEOUT_CNT + 1) {
+            printf("[FOLLOW] UWB 超时，已停机\r\n");
+        }
+        return;
+    }
+
+    // ---- 距离边界检查 ----
+    if (dist_m > FOLLOW_MAX_DIST_M || dist_m < FOLLOW_MIN_DIST_M || dist_raw == 0) {
+        Motor_Reset_ALL();
+        return;
+    }
+
+    // 雷达障碍物检测
+    uint8_t    obs_cnt        = 0;
+    float      obs_angle_sum  = 0.0f;
+    uint8_t    obs_level      = 0;       // 使用状态机  0 = 无障碍 1 = 常规避障 2 = 紧急避障
+    float      obs_min_dist   = 9999;
+
+    for (int i = 0; i < 50; i++) {
+        uint16_t d = PointDataProcess[i].distance;
+        if (d == 0) continue;
+
+        float a = PointDataProcess[i].angle;
+        float a_norm = (a > 180.0f) ? (a - 360.0f) : a;
+
+        // 只检测前方 ±FOLLOW_OBS_ANGLE_RANGE 范围内的点
+        if (fabsf(a_norm) > FOLLOW_OBS_ANGLE_RANGE) continue;
+
+        // 紧急距离
+        if (d < FOLLOW_OBS_NEAR_MM) {
+            obs_level = 2;
+            obs_cnt++;
+            obs_angle_sum += a_norm;
+            if (d < obs_min_dist) obs_min_dist = d;
+        }
+        // 常规避障距离（且不是紧急）
+        else if (d < FOLLOW_OBS_AVOID_MM && obs_level < 2) {
+            obs_level = 1;
+            obs_cnt++;
+            obs_angle_sum += a_norm;
+            if (d < obs_min_dist) obs_min_dist = d;
+        }
+    }
+
+    // ---- 运动决策 ----
+
+    if (obs_level == 2) {
+        // === 紧急避障：障碍物 < 150mm，原地转向 ===
+        float obs_avg = (obs_cnt > 0) ? (obs_angle_sum / obs_cnt) : 0;
+
+        if (obs_avg > 0) {
+            // 障碍物偏右侧 → 向左急转 (左轮反转，右轮正转)
+            follow_pwm_L  = -(FOLLOW_BASE_SPEED / 2);
+            follow_pwm_R = FOLLOW_BASE_SPEED;
+        } else {
+            // 障碍物偏左侧 → 向右急转 (右轮反转，左轮正转)
+            follow_pwm_L  = FOLLOW_BASE_SPEED;
+            follow_pwm_R = -(FOLLOW_BASE_SPEED / 2);
+        }
+
+        printf("[FOLLOW] !! 紧急避障 d=%.0fmm avg=%.1f° L=%d R=%d\r\n",
+               obs_min_dist, (obs_cnt > 0) ? (obs_angle_sum / obs_cnt) : 0.0f,
+               follow_pwm_L, follow_pwm_R);
+
+    } else if (obs_level == 1) {
+        // === 常规避障：障碍物 150~350mm，减速绕行 ===
+        float obs_avg = obs_angle_sum / obs_cnt;
+
+        if (obs_avg > 0) {
+            // 障碍物偏右 → 降低右侧速度，偏左前进
+            follow_pwm_L  = FOLLOW_BASE_SPEED;
+            follow_pwm_R = FOLLOW_BASE_SPEED / 3;
+        } else {
+            // 障碍物偏左 → 降低左侧速度，偏右前进
+            follow_pwm_L  = FOLLOW_BASE_SPEED / 3;
+            follow_pwm_R = FOLLOW_BASE_SPEED;
+        }
+
+        printf("[FOLLOW] ! 避障绕行 d=%.0fmm avg=%.1f° L=%d R=%d\r\n",
+               obs_min_dist, obs_avg, follow_pwm_L, follow_pwm_R);
+
+    } else {
+        // === 无避障 → 纯 UWB 跟随 ===
+
+        if (azim_deg > FOLLOW_AZIMUTH_DEADZONE) {
+            // 标签在右侧 → 右侧减速
+            float corr = azim_deg * FOLLOW_TURN_GAIN;
+            if (corr > FOLLOW_BASE_SPEED) corr = FOLLOW_BASE_SPEED;
+            follow_pwm_L  = FOLLOW_BASE_SPEED;
+            follow_pwm_R = FOLLOW_BASE_SPEED - (int16_t)corr;
+
+        } else if (azim_deg < -FOLLOW_AZIMUTH_DEADZONE) {
+            // 标签在左侧 → 左侧减速
+            float corr = (-azim_deg) * FOLLOW_TURN_GAIN;
+            if (corr > FOLLOW_BASE_SPEED) corr = FOLLOW_BASE_SPEED;
+            follow_pwm_L  = FOLLOW_BASE_SPEED - (int16_t)corr;
+            follow_pwm_R = FOLLOW_BASE_SPEED;
+
+        } else {
+            // 标签在正前方（死区范围内）→ 直行
+            follow_pwm_L  = FOLLOW_BASE_SPEED;
+            follow_pwm_R = FOLLOW_BASE_SPEED;
+        }
+    }
+
+    // ---- PWM 限幅 ----
+    if (follow_pwm_L  >  7000) follow_pwm_L  = 7000;
+    if (follow_pwm_L  < -7000) follow_pwm_L  = -7000;
+    if (follow_pwm_R >  7000) follow_pwm_R = 7000;
+    if (follow_pwm_R < -7000) follow_pwm_R = -7000;
+
+    // ---- 输出到电机 ----
+    // 左前1  右前3
+    // 左后2  右后4
+    // PWM共用：1和2 用 MOTOR1_PWM，3和4 用 MOTOR2_PWM
+    Motor_Set(1, follow_pwm_L);
+    Motor_Set(2, follow_pwm_L);
+    Motor_Set(3, follow_pwm_R);
+    Motor_Set(4, follow_pwm_R);
+
+    // ---- 调试输出（每 10 次即 100ms 打印一次）----
+    if (++dbg_tick >= 10) {
+        dbg_tick = 0;
+        printf("[FOLLOW] d=%.2fm azi=%.1f° obs=%d/%d L=%d R=%d\r\n",
+               dist_m, azim_deg, obs_cnt, obs_level, follow_pwm_L, follow_pwm_R);
+    }
+}

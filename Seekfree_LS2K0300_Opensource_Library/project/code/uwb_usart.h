@@ -112,6 +112,7 @@ typedef struct
 } UWB_RxCtrl;
 
 extern UWB_Data g_uwb_data;
+extern volatile uint32_t g_uwb_frame_count;    // 每收到一帧 +1，供外部检测数据刷新
 
 //==================================================API 函数声明====================================================
 

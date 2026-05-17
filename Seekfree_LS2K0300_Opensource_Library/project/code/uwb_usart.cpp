@@ -56,6 +56,7 @@ extern "C" int tcflush(int, int);
 static int              g_uwb_fd = -1;
 static UWB_RxCtrl       g_uwb_rx;
 UWB_Data                g_uwb_data;
+volatile uint32_t       g_uwb_frame_count = 0;
 
 typedef union
 {
@@ -240,6 +241,7 @@ static void parse_frame(void)
     g_uwb_data.elevation_f = g_ema_elev;
     g_uwb_data.data_valid  = 1;
     g_uwb_data.timestamp   = 0;
+    g_uwb_frame_count++;  // 数据刷新，帧计数递增
 }
 
 //==================================================外部 API=========================================================
