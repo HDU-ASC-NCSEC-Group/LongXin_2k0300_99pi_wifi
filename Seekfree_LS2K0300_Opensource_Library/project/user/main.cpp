@@ -54,47 +54,54 @@ void pit_callback_10ms()
     //     IMU_D_and_A_Enable = 0;
     // }
 
-    ld_usart_task();            // 快速拉取所有可用字节并解包
+    // 雷达数据更新
+    // ld_usart_task();            // 快速拉取所有可用字节并解包
+    // 雷达数据处理
+    // data_process();    // 处理数据，提取前方 ±50° 范围内的点
 
-    if (g_lidar_frame_valid) {
-        // 打印一帧关键信息
-        printf("Radar: speed=%u rpm, angle %.2f->%.2f, ts=%u\n",
-               g_lidar_frame.speed,
-               g_lidar_frame.start_angle * 0.01f,
-               g_lidar_frame.end_angle * 0.01f,
-               g_lidar_frame.timestamp);
+    // 雷达数据解包信息
+    // if (g_lidar_frame_valid) {
+    //     // 打印一帧关键信息
+    //     printf("Radar: speed=%u rpm, angle %.2f->%.2f, ts=%u\n",
+    //            g_lidar_frame.speed,
+    //            g_lidar_frame.start_angle * 0.01f,
+    //            g_lidar_frame.end_angle * 0.01f,
+    //            g_lidar_frame.timestamp);
 
-        for (int i = 0; i < POINT_PER_PACK; i++) {
-            printf("  pt[%d]: %u mm, %u\n",
-                   i,
-                   g_lidar_frame.point[i].distance,
-                   g_lidar_frame.point[i].intensity);
-        }
+    //     for (int i = 0; i < POINT_PER_PACK; i++) {
+    //         printf("  pt[%d]: %u mm, %u\n",
+    //                i,
+    //                g_lidar_frame.point[i].distance,
+    //                g_lidar_frame.point[i].intensity);
+    //     }
 
-        // g_lidar_frame_valid = false;
-    }
+    //     // g_lidar_frame_valid = false;
+    // }
 
     // 转向状态更新
-    if(Is_Angle_Turning()) {
-		Update_Angle_Turn();
-	}
+    // if(Is_Angle_Turning()) {
+	// 	Update_Angle_Turn();
+	// }
 
-    if (Mode_Flag == AVOID_MODE && !Is_Angle_Turning()) {
-        data_process();    // 处理数据，提取前方 ±50° 范围内的点
-
-        number_task++;
-        if (number_task >= 10) {
-                number_task = 0;
-                avoid();            // 避障函数，计算避障角度并设置电机速度
-        }
-    }
-    Motor_Output_Turn();
+    //Motor_Output_Turn();
 
     // uwb数据更新
     uwb_usart_task();    // 快速拉取所有可用 UWB 字节并解包
 
-    // yaw角测试
-    //printf("yaw:%.2f\n", Yaw_Result);
+    // 避障模式
+    // number_task++;
+    // if (number_task >= 2) {
+    //         number_task = 0;
+    //         avoid();            // 避障函数，计算避障角度并设置电机速度
+    // }
+
+    // uwb跟随模式
+    number_task++;
+    if (number_task >= 2) {
+            number_task = 0;
+            uwb_follow();            // 避障函数，计算避障角度并设置电机速度
+    } 
+
 }
 
 void pit_callback_200ms()
@@ -148,34 +155,37 @@ int main(int, char**)
     pit_timer_200ms = new timer_fd(200, pit_callback_200ms);
     pit_timer_200ms->start();
     
-    static int8_t turn_flag = 0;
-    static int8_t last_turn_flag = 0;
+    // 定向转向标准位
+    // static int8_t turn_flag = 0;
+    // static int8_t last_turn_flag = 0;
 
     while(1)
     {
-        if(Key_Check(KEY_NAME_UP,KEY_DOWN))
-        {
-            IMU_Reset_Data();
-            turn_flag ++;
-            if(turn_flag > 2)
-            {
-                turn_flag = 0;
-            }
-        }
+        // uwb_follow();         // UWB 跟随函数，根据距离和方位角调整电机速度实现跟随
+        
 
-        // 仅在按键状态变化时触发一次转向
-        if(turn_flag != last_turn_flag)
-        {
-            last_turn_flag = turn_flag;
-            if(turn_flag == 1)
-            {
-                Start_Angle_Turn(30.0f);  // 右转30度
-            }
-            else if(turn_flag == 2)
-            {
-                Start_Angle_Turn(-30.0f); // 左转30度
-            }
-        }   
+        // if(Key_Check(KEY_NAME_UP,KEY_DOWN))
+        // {
+        //     IMU_Reset_Data();
+        //     turn_flag ++;
+        //     if(turn_flag > 2)
+        //     {
+        //         turn_flag = 0;
+        //     }
+        // }
 
+        // // 仅在按键状态变化时触发一次转向
+        // if(turn_flag != last_turn_flag)
+        // {
+        //     last_turn_flag = turn_flag;
+        //     if(turn_flag == 1)
+        //     {
+        //         Start_Angle_Turn(30.0f);  // 右转30度
+        //     }
+        //     else if(turn_flag == 2)
+        //     {
+        //         Start_Angle_Turn(-30.0f); // 左转30度
+        //     }
+        // }   
     }
 }

@@ -33,9 +33,10 @@ void Peripheral_Init(void)
     //     printf("failed:UVC初始化失败");
     // }
 
-    // if (!ld_usart_init("/dev/ttyUSB0", 230400))
-    //     {
-    //     printf("failed:USB0初始化失败");
+    // 雷达初始化
+    // if (!ld_usart_init("/dev/ttyUSB1", 230400))
+    // {
+    //     printf("failed:USB1初始化失败");
     // }
 
     // uwb初始化
